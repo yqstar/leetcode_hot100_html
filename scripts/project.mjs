@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import vm from "node:vm";
 import solutions from "../src/solutions.mjs";
@@ -9,9 +10,66 @@ const root = new URL("../", import.meta.url);
 const runtimeUrl = new URL(".cache/runtime/", root);
 const problems = JSON.parse(await readFile(new URL("src/problems.json", root), "utf8"));
 
-function pythonResult(payload) {
-  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64");
-  const source = `import base64\npayload_json=base64.b64decode('${encoded}').decode()\n${pythonHarness}\nprint(RESULT_JSON)\n`;
+const safeJson = (value) => JSON.stringify(value)
+  .replaceAll("<", "\\u003c")
+  .replaceAll("\u2028", "\\u2028")
+  .replaceAll("\u2029", "\\u2029");
+
+async function buildArtifact() {
+  const [source, lockText, loader, asmModule, wasm, stdlib] = await Promise.all([
+    readFile(new URL("src/app.html", root), "utf8"),
+    readFile(new URL("pyodide-lock.json", runtimeUrl), "utf8"),
+    readFile(new URL("pyodide.mjs", runtimeUrl)),
+    readFile(new URL("pyodide.asm.mjs", runtimeUrl)),
+    readFile(new URL("pyodide.asm.wasm", runtimeUrl)),
+    readFile(new URL("python_stdlib.zip", runtimeUrl)),
+  ]);
+  const replacements = {
+    __PROBLEMS_JSON__: safeJson(problems),
+    __SOLUTIONS_JSON__: safeJson(solutions),
+    __PYTHON_HARNESS_JSON__: safeJson(pythonHarness),
+    __PYODIDE_LOCK_JSON__: safeJson(JSON.parse(lockText)),
+    __PYODIDE_LOADER_B64__: loader.toString("base64"),
+    __PYODIDE_ASM_MJS_B64__: asmModule.toString("base64"),
+    __PYODIDE_WASM_B64__: wasm.toString("base64"),
+    __PYODIDE_STDLIB_B64__: stdlib.toString("base64"),
+  };
+
+  let output = source;
+  for (const [token, value] of Object.entries(replacements)) {
+    const occurrences = output.split(token).length - 1;
+    if (occurrences !== 1) throw new Error(`构建占位符 ${token} 出现 ${occurrences} 次`);
+    output = output.replace(token, () => value);
+  }
+  if (/__[A-Z][A-Z0-9_]+__/.test(output)) throw new Error("HTML 构建占位符未完整替换");
+
+  const outputPath = new URL("leetcode_hot100_offline.html", root);
+  const outputBuffer = Buffer.from(output);
+  let previous = null;
+  try {
+    previous = await readFile(outputPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const changed = !previous?.equals(outputBuffer);
+  if (changed) await writeFile(outputPath, outputBuffer);
+
+  const hash = createHash("sha256").update(outputBuffer).digest("hex");
+  console.log(changed ? "已生成 leetcode_hot100_offline.html" : "构建产物无变化，跳过写入");
+  console.log(`题目 ${problems.length}，题解 ${Object.keys(solutions).length}，内嵌图片 ${(output.match(/data:image\//gi) || []).length}`);
+  console.log(`大小 ${(outputBuffer.byteLength / 1024 / 1024).toFixed(2)} MiB，SHA-256 ${hash}`);
+  return output;
+}
+
+const harnessLibrary = pythonHarness.replace(
+  /\nRESULT_JSON = json\.dumps\(run_payload\(json\.loads\(payload_json\)\), ensure_ascii=False\)\n?$/,
+  "",
+);
+if (harnessLibrary === pythonHarness) throw new Error("无法拆分 Python 评测器入口");
+
+function pythonResults(payloads) {
+  const encoded = Buffer.from(JSON.stringify(payloads)).toString("base64");
+  const source = `import base64, json\npayloads_json=base64.b64decode('${encoded}').decode()\n${harnessLibrary}\nprint(json.dumps([run_payload(payload) for payload in json.loads(payloads_json)], ensure_ascii=False))\n`;
   const processResult = spawnSync("python3", ["-c", source], {
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
@@ -37,16 +95,23 @@ function payloadFor(solution, userCode = solution.code, limit = solution.tests.l
 
 function testReferenceSolutions() {
   const failures = [];
+  const evaluable = [];
   for (const problem of problems) {
     const solution = solutions[problem.slug];
     if (!solution) {
       failures.push(`${problem.slug}: 缺少题解`);
       continue;
     }
-    const { processResult, parsed } = pythonResult(payloadFor(solution));
-    if (processResult.status !== 0 || !parsed?.passed) {
-      failures.push(`${problem.frontendId}. ${problem.title}: ${processResult.stderr || processResult.stdout || JSON.stringify(parsed)}`);
-    }
+    evaluable.push({ problem, payload: payloadFor(solution) });
+  }
+  const { processResult, parsed } = pythonResults(evaluable.map(({ payload }) => payload));
+  if (processResult.status !== 0 || !Array.isArray(parsed)) {
+    throw new Error(`参考实现批量执行失败：${processResult.stderr || processResult.stdout}`);
+  }
+  for (const [index, result] of parsed.entries()) {
+    if (result?.passed) continue;
+    const problem = evaluable[index].problem;
+    failures.push(`${problem.frontendId}. ${problem.title}: ${JSON.stringify(result)}`);
   }
   if (failures.length) throw new Error(`参考实现失败 ${failures.length} 题：\n${failures.join("\n")}`);
   console.log(`PASS ${problems.length} 道参考实现与 CPython 评测适配`);
@@ -60,10 +125,12 @@ function testNegativeCases() {
     ["lowest-common-ancestor-of-a-binary-tree", "class Solution:\n    def lowestCommonAncestor(self, root, p, q): return TreeNode(3)", "返回了伪造节点"],
     ["valid-parentheses", "class Solution:\n    def isValid(self, s) return True", "Python 语法错误"],
   ];
-  for (const [slug, userCode, label] of cases) {
-    const { processResult, parsed } = pythonResult(payloadFor(solutions[slug], userCode, 2));
-    if (processResult.status !== 0) throw new Error(`${slug} 反例执行失败：${processResult.stderr}`);
-    if (parsed?.passed) throw new Error(`${slug} 未能拒绝：${label}`);
+  const { processResult, parsed } = pythonResults(cases.map(([slug, userCode]) => payloadFor(solutions[slug], userCode, 2)));
+  if (processResult.status !== 0 || !Array.isArray(parsed)) {
+    throw new Error(`反例批量执行失败：${processResult.stderr || processResult.stdout}`);
+  }
+  for (const [index, result] of parsed.entries()) {
+    if (result?.passed) throw new Error(`${cases[index][0]} 未能拒绝：${cases[index][2]}`);
   }
   console.log(`PASS ${cases.length} 类错误答案均被拒绝`);
 }
@@ -148,11 +215,8 @@ function testMemoryRuntimeInChild() {
   if (result.status !== 0) throw new Error(result.stderr || "内存兼容模式测试失败");
 }
 
-async function verifyArtifact() {
-  const [html, lockText] = await Promise.all([
-    readFile(new URL("leetcode_hot100_offline.html", root), "utf8"),
-    readFile(new URL("pyodide-lock.json", runtimeUrl), "utf8"),
-  ]);
+async function verifyArtifact(html) {
+  const lockText = await readFile(new URL("pyodide-lock.json", runtimeUrl), "utf8");
   const lock = JSON.parse(lockText);
   const assertions = [];
   const check = (condition, message) => {
@@ -174,6 +238,7 @@ async function verifyArtifact() {
   check((html.match(/data:image\//gi) || []).length >= 60, "题面示意图已内嵌");
   check(html.includes("HOT100_EXPORT_VERSION:2") && html.includes("HOT100_RECORD") && html.includes("HOT100_NOTE_START"), "包含 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("同时导出个人代码"), "Markdown 导出可选个人代码");
+  check(html.includes('id="problem-toggle-button"') && html.includes("setProblemPaneCollapsed(true)"), "进入题目时默认收起题面并可手动展开");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
   check(html.includes("prewarmJudge()") && html.includes("Python 运行时已内置，将自动准备"), "Python 运行时自动预热");
   check(html.includes("startMainThreadJudge") && !html.includes('new Worker(workerUrl, { type: "module"'), "包含 file:// 兼容回退");
@@ -192,13 +257,21 @@ async function verifyArtifact() {
   console.log(`PASS 离线构建产物 ${assertions.length} 项校验`);
 }
 
+const command = process.argv[2];
+
 if (process.argv.includes("--memory-runtime")) {
   await testMemoryRuntime();
-} else {
+} else if (command === "build") {
+  await buildArtifact();
+} else if (command === "test") {
+  const html = await buildArtifact();
   testReferenceSolutions();
   testNegativeCases();
   await testPyodide();
   testMemoryRuntimeInChild();
-  await verifyArtifact();
+  await verifyArtifact(html);
   console.log("全部测试通过");
+} else {
+  console.error("用法：node scripts/project.mjs <build|test>");
+  process.exitCode = 1;
 }

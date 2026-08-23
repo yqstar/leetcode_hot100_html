@@ -23,8 +23,10 @@ Python 运行时已经打包在 HTML 内，页面空闲时会自动预热，不�
 ## 开发校验
 
 ```bash
-node scripts/build.mjs
-node scripts/test.mjs
+node scripts/project.mjs build
+node scripts/project.mjs test
 ```
 
-`build.mjs` 重新生成单文件；`test.mjs` 一次执行参考解、反例、CPython、Pyodide、兼容模式和离线产物校验。项目没有第三方 npm 依赖。
+`build` 只在内容变化时重新写入离线 HTML；`test` 会先构建，再一次执行参考解、反例、CPython、Pyodide、兼容模式和离线产物校验。项目没有第三方 npm 依赖。
+
+前端结构、样式与交互集中在 `src/app.html`；题目快照、题解和 Python 评测器保持独立，便于分别维护。
