@@ -1,0 +1,347 @@
+{
+  "https://assets.leetcode.com/uploads/2020/08/17/mat2.jpg": {
+    "filename": "246fbe40dba8075e28133f5a85c718ec8e0f7a0e5b890e76bb2d007efbb21774.bin",
+    "contentType": "image/jpeg",
+    "size": 21603
+  },
+  "https://assets.leetcode.com/uploads/2020/11/13/spiral1.jpg": {
+    "filename": "5b87620d1458c6a4d038ace41438846def534ccb7154e32253fc52003dcebca2.bin",
+    "contentType": "image/jpeg",
+    "size": 10159
+  },
+  "https://assets.leetcode.com/uploads/2020/11/13/spiral.jpg": {
+    "filename": "b899d61ed9c3b0e6ab2f3bf2dd1a432ae6d59069ecb1d8f464d19b44b2aad63c.bin",
+    "contentType": "image/jpeg",
+    "size": 14152
+  },
+  "https://assets.leetcode.com/uploads/2020/08/28/mat1.jpg": {
+    "filename": "8913467952a509269ca40a9b814614635c0cd0776db9e835ed731473c29beae4.bin",
+    "contentType": "image/jpeg",
+    "size": 16754
+  },
+  "https://assets.leetcode.com/uploads/2020/08/28/mat2.jpg": {
+    "filename": "3532ca76ab7eeb32f89e335bc75016118d76aebbeeb1e179b0c9008b4598a999.bin",
+    "contentType": "image/jpeg",
+    "size": 31770
+  },
+  "https://assets.leetcode.com/uploads/2020/08/17/mat1.jpg": {
+    "filename": "b39ed8599eecd37b94f750c9462e2e51a5ff18ab0cc82a882f12950f23960456.bin",
+    "contentType": "image/jpeg",
+    "size": 13796
+  },
+  "https://assets.leetcode.com/uploads/2021/03/05/160_example_1_1.png": {
+    "filename": "dcf0125b2bbfc7537ad0350effcc05f21e63b0410f83610055ea4662d801b2b1.bin",
+    "contentType": "image/png",
+    "size": 18901
+  },
+  "https://aliyun-lc-upload.oss-cn-hangzhou.aliyuncs.com/aliyun-lc-upload/uploads/2018/07/25/question_11.jpg": {
+    "filename": "791880783dd57dc13af02f35b23e99551db55ff9268f7f3e042ecc6e036b158f.bin",
+    "contentType": "image/jpeg",
+    "size": 18362
+  },
+  "https://assets.leetcode.com/uploads/2021/03/05/160_example_2.png": {
+    "filename": "ea5fceea464d456c5eb7b432cbc809641350f46b00a5823269ce9bb5a9395e7f.bin",
+    "contentType": "image/png",
+    "size": 16391
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2020/11/25/searchgrid2.jpg": {
+    "filename": "00d82d73acc527cfca741bd1c4b14286e6f78247a204117ba2d979a989752cc9.bin",
+    "contentType": "image/jpeg",
+    "size": 26336
+  },
+  "https://assets.leetcode.com/uploads/2021/02/19/rev1ex1.jpg": {
+    "filename": "e9acad4beaa3d2bcae2685fff5ea3054babf001550d1832a6d107ac5ca936383.bin",
+    "contentType": "image/jpeg",
+    "size": 19131
+  },
+  "https://assets.leetcode.com/uploads/2021/02/19/rev1ex2.jpg": {
+    "filename": "b9581212b1a53f22f403da33e1404f20b6ad0cf72e0b3039e6583f718ad1da79.bin",
+    "contentType": "image/jpeg",
+    "size": 7808
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/10/22/rainwatertrap.png": {
+    "filename": "eee41b2671060e8df6d59e0b7c32121f3b5cb24aad6f558544e16153d07a9d46.bin",
+    "contentType": "image/png",
+    "size": 7848
+  },
+  "https://assets.leetcode.com/uploads/2021/03/03/pal1linked-list.jpg": {
+    "filename": "c769cb517a54e53e1190d8fa939bb05bb40bc7a2df8bb4e84365e8e0755e9f32.bin",
+    "contentType": "image/jpeg",
+    "size": 7140
+  },
+  "https://assets.leetcode.com/uploads/2021/03/03/pal2linked-list.jpg": {
+    "filename": "3a0746dc31f360edf27da4e597b9cc47de1322b2c67f95a83deddc478b6e40ea.bin",
+    "contentType": "image/jpeg",
+    "size": 3572
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/12/07/circularlinkedlist.png": {
+    "filename": "4adb870918c0d48ff19c53e01b5f1f5c51c7ffb7ed88f8fb661d3d18243473db.bin",
+    "contentType": "image/png",
+    "size": 11301
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/12/07/circularlinkedlist_test2.png": {
+    "filename": "3e217d2855711c0286a8a9b52543e78fb6fdd5e794d27ed7b26509297c9c5f0e.bin",
+    "contentType": "image/png",
+    "size": 4582
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/12/14/160_example_3.png": {
+    "filename": "7606749608743f5f2fc2e53ce5c718f50c7607cca07ff5412996fab81b151d26.bin",
+    "contentType": "image/png",
+    "size": 11092
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/12/14/160_statement.png": {
+    "filename": "662f32e05fa82353262a6d867b67e55bd6f28cd23f09b722ed85e362836175e3.bin",
+    "contentType": "image/png",
+    "size": 19796
+  },
+  "https://assets.leetcode.com/uploads/2020/10/03/merge_ex1.jpg": {
+    "filename": "cbc26c80201d4e9160deb2943adcae3ab78a8ab8f49d8f359d7c8434d2029021.bin",
+    "contentType": "image/jpeg",
+    "size": 26408
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2020/11/25/searchgrid.jpg": {
+    "filename": "fd47de739847ffb678a4b72d48af5254b0e60d78fa2a2012b5eb3b9e89cc9902.bin",
+    "contentType": "image/jpeg",
+    "size": 26187
+  },
+  "https://assets.leetcode.com/uploads/2018/12/07/circularlinkedlist.png": {
+    "filename": "ee9aeaea391b8bc7015d7fd75151803bcdf1b9c3e1eed6dc4e49b52bd4a78e2b.bin",
+    "contentType": "image/png",
+    "size": 11301
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/12/07/circularlinkedlist_test3.png": {
+    "filename": "cd002ce95bdc12cc8881c60f3856d299accdaa32a82c777d09a130829a42e793.bin",
+    "contentType": "image/png",
+    "size": 1963
+  },
+  "https://assets.leetcode.com/uploads/2020/10/03/swap_ex1.jpg": {
+    "filename": "fae0a0e15577b42209b028d5e3543cd44b46a3e580f424640a64216fd6253024.bin",
+    "contentType": "image/jpeg",
+    "size": 15677
+  },
+  "https://assets.leetcode.com/uploads/2020/10/03/remove_ex1.jpg": {
+    "filename": "3dbd5b753262ea8a144cd836a3c7af72baca2a126673fb9014ba398ca854c798.bin",
+    "contentType": "image/jpeg",
+    "size": 18128
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2020/01/09/e1.png": {
+    "filename": "629a023448aae539441e167b4a7e3fe844dca606d16ddb2b2b558e4719896a88.bin",
+    "contentType": "image/png",
+    "size": 62511
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2021/01/02/addtwonumber1.jpg": {
+    "filename": "e13912ab6d0cee5613f7a5488511ea3e410523c9a21f40b4d4a6f6222ed4b36d.bin",
+    "contentType": "image/jpeg",
+    "size": 19627
+  },
+  "https://assets.leetcode.com/uploads/2020/10/03/reverse_ex2.jpg": {
+    "filename": "90d3ab2b98229b41928c48ba95d2ce44508a109fa8110d1612e5c7766e4fb717.bin",
+    "contentType": "image/jpeg",
+    "size": 18884
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2020/01/09/e2.png": {
+    "filename": "d30795b7ba54beb094033e5ab237aa903dd2a790ba09153b2ad509eac377af09.bin",
+    "contentType": "image/png",
+    "size": 36354
+  },
+  "https://assets.leetcode.com/uploads/2020/09/14/sort_list_1.jpg": {
+    "filename": "2200d696a1851ea221016ca2df5d71f0d61a39d92e2c2dcca6f2a99069777e29.bin",
+    "contentType": "image/jpeg",
+    "size": 21123
+  },
+  "https://assets.leetcode.com/uploads/2020/09/15/inorder_1.jpg": {
+    "filename": "5cd2b170bec420ffd83cc871dbb404a081ae35284b143d2a1b58e80f169e2b76.bin",
+    "contentType": "image/jpeg",
+    "size": 8650
+  },
+  "https://assets.leetcode.com/uploads/2020/09/14/sort_list_2.jpg": {
+    "filename": "49367b04ae63af59f8bf5b40da28e18d4d8f54de4ce64aa55286279808f498c7.bin",
+    "contentType": "image/jpeg",
+    "size": 26470
+  },
+  "https://assets.leetcode.com/uploads/2020/10/03/reverse_ex1.jpg": {
+    "filename": "af598c9f971833c79cb9d5902052021cb02e2195cf35accee2c378b39be1cac8.bin",
+    "contentType": "image/jpeg",
+    "size": 19377
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2020/01/09/e3.png": {
+    "filename": "e6c780a651af1d9abfb3b21db156d01bc6645af19611dff202e5abc754b7d7f1.bin",
+    "contentType": "image/png",
+    "size": 48603
+  },
+  "https://assets.leetcode.com/uploads/2021/03/14/invert1-tree.jpg": {
+    "filename": "e71a4000774cf130f5a888272d261d5b8e3cccb64cbe74cf4f06aa7ecd96b2c7.bin",
+    "contentType": "image/jpeg",
+    "size": 34272
+  },
+  "https://assets.leetcode.com/uploads/2021/03/14/invert2-tree.jpg": {
+    "filename": "44958e5ee435900c0d8352b91385f04a3f45063fba863f0e812f554cd33afafa.bin",
+    "contentType": "image/jpeg",
+    "size": 15045
+  },
+  "https://assets.leetcode.com/uploads/2020/11/26/tmp-tree.jpg": {
+    "filename": "c54ac00c23a196026fe24c877c4d31ac7b1a84fd105a8c0e4833427ad5033955.bin",
+    "contentType": "image/jpeg",
+    "size": 12823
+  },
+  "https://assets.leetcode.com/uploads/2021/03/06/diamtree.jpg": {
+    "filename": "f53b55967a28728bc10dfaff12fb2beb84a21c672f6a84fafd5e98dc34e56c92.bin",
+    "contentType": "image/jpeg",
+    "size": 10828
+  },
+  "https://assets.leetcode.com/uploads/2021/02/18/btree2.jpg": {
+    "filename": "88a0a40add46b22afe025a54bb4a5b46859a5bd91d5e53d5d8aa311a024b7d26.bin",
+    "contentType": "image/jpeg",
+    "size": 9935
+  },
+  "https://pic.leetcode.cn/1698026966-JDYPDU-image.png": {
+    "filename": "a5ebdc9fe59323375c9cefa89f3b217dbb29da0f91ca154ea0e9ef9388989f83.bin",
+    "contentType": "image/png",
+    "size": 12476
+  },
+  "https://assets.leetcode.com/uploads/2021/02/18/btree1.jpg": {
+    "filename": "a6092bc97d6185b6342644e3b8892d58fc141eadd78230789192eb540c377352.bin",
+    "contentType": "image/jpeg",
+    "size": 9860
+  },
+  "https://pic.leetcode.cn/1698027008-nPFLbM-image.png": {
+    "filename": "ff143c6bd2a4d677bd0edac43e0303cf920e7fae89e9a8f21096d749513a0a40.bin",
+    "contentType": "image/png",
+    "size": 9825
+  },
+  "https://assets.leetcode.com/uploads/2020/12/01/tree1.jpg": {
+    "filename": "f3fe07c9ca7e5f14d7c15e6eeaf04494c14b19f09cfb7b81c7ec9e5ced0aa262.bin",
+    "contentType": "image/jpeg",
+    "size": 6825
+  },
+  "https://assets.leetcode.com/uploads/2021/02/18/btree.jpg": {
+    "filename": "cb3cab769d17acab02cda38950ea9119c7b902123dfa44736dfae345efc98eb7.bin",
+    "contentType": "image/jpeg",
+    "size": 7104
+  },
+  "https://assets.leetcode.com/uploads/2020/12/01/tree2.jpg": {
+    "filename": "e95fb5cf9ec8456db1da81826bb0e2c19397dac2bbc639d3d27c08bfd73ba6ba.bin",
+    "contentType": "image/jpeg",
+    "size": 12328
+  },
+  "https://assets.leetcode.com/uploads/2021/01/28/kthtree1.jpg": {
+    "filename": "8f98480f1798dfde5f91c5cf09094f06c61f340014c4678108a6aad8f660d3e0.bin",
+    "contentType": "image/jpeg",
+    "size": 8694
+  },
+  "https://assets.leetcode.com/uploads/2021/02/19/tree1.jpg": {
+    "filename": "573e3d9e6656d9e8cc688490e47647f618706fa57198f0fac03d97407dd1e4b8.bin",
+    "contentType": "image/jpeg",
+    "size": 11387
+  },
+  "https://assets.leetcode.com/uploads/2021/04/09/pathsum3-1-tree.jpg": {
+    "filename": "0ead93d8045d5df467c0d24978921b7864b1d9f815f2238820f84542de32d0ca.bin",
+    "contentType": "image/jpeg",
+    "size": 42148
+  },
+  "https://assets.leetcode.com/uploads/2021/02/19/tree.jpg": {
+    "filename": "cee2cc9e1f78d7165f145e88254a90aee289d81bc19bedeb8e142fb1380afee0.bin",
+    "contentType": "image/jpeg",
+    "size": 11138
+  },
+  "https://assets.leetcode.com/uploads/2021/01/14/flaten.jpg": {
+    "filename": "62fa6c738b51414c72ee0690a7539a7fa66859f801df9073a05826a011b0cc9b.bin",
+    "contentType": "image/jpeg",
+    "size": 29570
+  },
+  "https://assets.leetcode.com/uploads/2024/11/24/tmpkpe40xeh-1.png": {
+    "filename": "5430c87df57ce2104485a4724d159f67477af5ec50a7c145c25f42f7d30dea8d.bin",
+    "contentType": "image/png",
+    "size": 16028
+  },
+  "https://assets.leetcode.com/uploads/2024/11/24/tmpd5jn43fs-1.png": {
+    "filename": "f27e9684351537b80ec75f698359d54630c14603378d827ce282fcefa5337468.bin",
+    "contentType": "image/png",
+    "size": 13025
+  },
+  "https://assets.leetcode.com/uploads/2018/12/14/binarytree.png": {
+    "filename": "39eab5788e80c951b45c5ae34eafcd6d4c1033828ad5d91024903fa5c99c7cfa.bin",
+    "contentType": "image/png",
+    "size": 7530
+  },
+  "https://assets.leetcode.com/uploads/2020/10/13/exx2.jpg": {
+    "filename": "2796cd67b3b48e17c8cde743c34ced2a8bea3f53728aeb7277b88b3acd036d70.bin",
+    "contentType": "image/jpeg",
+    "size": 13062
+  },
+  "https://assets.leetcode.com/uploads/2020/10/13/exx1.jpg": {
+    "filename": "a38e09d667d026cf4bc2856df68b26e27ab3907e35def87bc9f5e4cd6d01599a.bin",
+    "contentType": "image/jpeg",
+    "size": 6990
+  },
+  "https://assets.leetcode.com/uploads/2021/01/28/kthtree2.jpg": {
+    "filename": "0e3775d899243de90d8547f9d7d8342dffea98ea5d7666479401fe6300310199.bin",
+    "contentType": "image/jpeg",
+    "size": 11740
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2019/02/16/oranges.png": {
+    "filename": "99a188de22a96637026762a7979db265c53de36a7d8fd1d13f138d4c8bac8e4c.bin",
+    "contentType": "image/png",
+    "size": 42586
+  },
+  "https://assets.leetcode.com/uploads/2020/11/04/word2.jpg": {
+    "filename": "868c28442626d8ae711c39c0af351d94b5753d73743990465d0094e6086be42e.bin",
+    "contentType": "image/jpeg",
+    "size": 13241
+  },
+  "https://assets.leetcode.com/uploads/2020/11/13/queens.jpg": {
+    "filename": "885d96b204b5968fcf9d0603991841065ac8e992af7659616ec7befca80fad08.bin",
+    "contentType": "image/jpeg",
+    "size": 31523
+  },
+  "https://assets.leetcode.com/uploads/2020/11/04/word-1.jpg": {
+    "filename": "00cd0e1656454288dd82af07281b51952a316e60a93b74878f6b24fa013776af.bin",
+    "contentType": "image/jpeg",
+    "size": 12448
+  },
+  "https://assets.leetcode.com/uploads/2020/10/15/word3.jpg": {
+    "filename": "0c7152829e192771c735a6684f074f9e111720db340c59086ffebc4d8a480c57.bin",
+    "contentType": "image/jpeg",
+    "size": 11280
+  },
+  "https://assets.leetcode.com/uploads/2020/10/05/mat.jpg": {
+    "filename": "93d6dc4c09dbbfebd8963aad079a00df31556b4353a24e6f8eed1a1deb39d9e5.bin",
+    "contentType": "image/jpeg",
+    "size": 13466
+  },
+  "https://assets.leetcode.com/uploads/2021/01/04/histogram.jpg": {
+    "filename": "4a4c2452333c0fffe13a60154c596e58e342ff58de69a00b5920cc1522a24581.bin",
+    "contentType": "image/jpeg",
+    "size": 12560
+  },
+  "https://assets.leetcode.com/uploads/2021/01/04/histogram-1.jpg": {
+    "filename": "eae54dc8e5971d4910007846b5a647ebcb972fcf3785fdcd32c58add219a4d2e.bin",
+    "contentType": "image/jpeg",
+    "size": 6900
+  },
+  "https://assets.leetcode.cn/aliyun-lc-upload/uploads/2020/11/25/mat2.jpg": {
+    "filename": "e7e0b15f11dd33406098a2d9a634368a6245b785906a0d6ccf3bcace58216126.bin",
+    "contentType": "image/jpeg",
+    "size": 13298
+  },
+  "https://pic.leetcode.cn/1626927345-DZmfxB-PascalTriangleAnimated2.gif": {
+    "filename": "2a532708a494ccb89a06083e6e4ff1c563265fb0494d073e26f5b53a08560b09.bin",
+    "contentType": "image/gif",
+    "size": 27535
+  },
+  "https://pic.leetcode.cn/1752723054-mfIHZs-image.png": {
+    "filename": "c650665c5de753c89e9107d8ae67e57c628cff7309a3c78d6337d6afc2cbbc1e.bin",
+    "contentType": "image/png",
+    "size": 264571
+  },
+  "https://assets.leetcode.com/uploads/2020/11/05/minpath.jpg": {
+    "filename": "740753af9ef8d586f0acba5be1b1a40b1ef0467f5e57334fd5d8cacd764515b0.bin",
+    "contentType": "image/jpeg",
+    "size": 8495
+  },
+  "https://pic.leetcode.cn/1697422740-adxmsI-image.png": {
+    "filename": "d9a9b5c9d80e99242fd3ec6174080b356c6b4cc346ee39b3ec56e5f7e9269883.bin",
+    "contentType": "image/png",
+    "size": 9048
+  }
+}
