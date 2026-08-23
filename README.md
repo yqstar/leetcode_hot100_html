@@ -23,9 +23,8 @@ Python 运行时已经打包在 HTML 内，页面空闲时会自动预热，不�
 ## 开发校验
 
 ```bash
-node scripts/test-solutions.mjs
-node scripts/test-judge-negative.mjs
-node scripts/test-pyodide.mjs
 node scripts/build.mjs
-node scripts/verify.mjs
+node scripts/test.mjs
 ```
+
+`build.mjs` 重新生成单文件；`test.mjs` 一次执行参考解、反例、CPython、Pyodide、兼容模式和离线产物校验。项目没有第三方 npm 依赖。

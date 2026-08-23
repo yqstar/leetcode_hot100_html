@@ -5,67 +5,60 @@ import pythonHarness from "../src/python-harness.mjs";
 
 const root = new URL("../", import.meta.url);
 const readText = (path) => readFile(new URL(path, root), "utf8");
-const readBuffer = (path) => readFile(new URL(path, root));
 const safeJson = (value) => JSON.stringify(value)
   .replaceAll("<", "\\u003c")
   .replaceAll("\u2028", "\\u2028")
   .replaceAll("\u2029", "\\u2029");
 
-const [problemText, styleText, appTemplate, appSource, manifestText, lockText] = await Promise.all([
+const [problemText, styleText, appTemplate, appSource, lockText, loader, asmModule, wasm, stdlib] = await Promise.all([
   readText("src/problems.json"), readText("src/styles.css"), readText("src/app.template"),
-  readText("src/app.js"), readText(".cache/images/manifest.json"), readText(".cache/runtime/pyodide-lock.json"),
+  readText("src/app.js"), readText(".cache/runtime/pyodide-lock.json"),
+  readFile(new URL(".cache/runtime/pyodide.mjs", root)),
+  readFile(new URL(".cache/runtime/pyodide.asm.mjs", root)),
+  readFile(new URL(".cache/runtime/pyodide.asm.wasm", root)),
+  readFile(new URL(".cache/runtime/python_stdlib.zip", root)),
 ]);
 const problems = JSON.parse(problemText);
-const imageManifest = JSON.parse(manifestText);
 
 if (problems.length !== 100) throw new Error(`题目数量异常：${problems.length}`);
 const missingSolutions = problems.filter((problem) => !solutions[problem.slug]);
 if (missingSolutions.length) throw new Error(`缺少题解：${missingSolutions.map((problem) => problem.slug).join(", ")}`);
 
-const imageData = new Map();
-for (const [url, entry] of Object.entries(imageManifest)) {
-  if (entry.error) continue;
-  const buffer = await readBuffer(`.cache/images/${entry.filename}`);
-  imageData.set(url, `data:${entry.contentType};base64,${buffer.toString("base64")}`);
+const imageSources = problems.flatMap((problem) =>
+  [...problem.content.matchAll(/<img\b[^>]*?\bsrc=(["'])([^"']+)\1/gi)].map((match) => match[2]),
+);
+const externalImages = imageSources.filter((source) => !source.startsWith("data:image/"));
+if (externalImages.length) {
+  throw new Error(`题面仍包含 ${externalImages.length} 个未内嵌图片`);
 }
 
-function normalizeUrl(url) {
-  const decoded = url.replaceAll("&amp;", "&");
-  return decoded.startsWith("//") ? `https:${decoded}` : decoded;
-}
-
-function embedProblemImages(content) {
-  return content
-    .replace(/\s+srcset=(["'])[^"']*\1/gi, "")
-    .replace(/(<img\b[^>]*?\bsrc=)(["'])([^"']+)\2/gi, (full, prefix, quote, source) => {
-      const embedded = imageData.get(normalizeUrl(source));
-      return embedded ? `${prefix}${quote}${embedded}${quote}` : full;
-    });
-}
-
-const embeddedProblems = problems.map((problem) => ({ ...problem, content: embedProblemImages(problem.content) }));
-const runtimeFiles = {
-  __PYODIDE_LOADER_B64__: (await readBuffer(".cache/runtime/pyodide.mjs")).toString("base64"),
-  __PYODIDE_ASM_MJS_B64__: (await readBuffer(".cache/runtime/pyodide.asm.mjs")).toString("base64"),
-  __PYODIDE_WASM_B64__: (await readBuffer(".cache/runtime/pyodide.asm.wasm")).toString("base64"),
-  __PYODIDE_STDLIB_B64__: (await readBuffer(".cache/runtime/python_stdlib.zip")).toString("base64"),
+const replacements = {
+  __PROBLEMS_JSON__: safeJson(problems),
+  __SOLUTIONS_JSON__: safeJson(solutions),
+  __PYTHON_HARNESS_JSON__: safeJson(pythonHarness),
+  __PYODIDE_LOCK_JSON__: safeJson(JSON.parse(lockText)),
+  __PYODIDE_LOADER_B64__: loader.toString("base64"),
+  __PYODIDE_ASM_MJS_B64__: asmModule.toString("base64"),
+  __PYODIDE_WASM_B64__: wasm.toString("base64"),
+  __PYODIDE_STDLIB_B64__: stdlib.toString("base64"),
 };
 
-let script = appSource
-  .replace("__PROBLEMS_JSON__", safeJson(embeddedProblems))
-  .replace("__SOLUTIONS_JSON__", safeJson(solutions))
-  .replace("__PYTHON_HARNESS_JSON__", safeJson(pythonHarness))
-  .replace("__PYODIDE_LOCK_JSON__", safeJson(JSON.parse(lockText)));
-for (const [placeholder, value] of Object.entries(runtimeFiles)) {
-  script = script.replace(placeholder, value);
+let script = appSource;
+for (const [token, value] of Object.entries(replacements)) {
+  const occurrences = script.split(token).length - 1;
+  if (occurrences !== 1) throw new Error(`构建占位符 ${token} 出现 ${occurrences} 次`);
+  script = script.replace(token, value);
 }
 script = script.replaceAll("</script", "<\\/script");
 
-const output = appTemplate.replace("__STYLES__", styleText).replace("__APP_SCRIPT__", script);
+const output = appTemplate
+  .replace("__STYLES__", styleText)
+  .replace("__APP_SCRIPT__", script);
+if (/__(?:STYLES|APP_SCRIPT)__/.test(output)) throw new Error("HTML 模板占位符未完整替换");
 const outputPath = new URL("leetcode_hot100_offline.html", root);
 await writeFile(outputPath, output);
 
 const hash = createHash("sha256").update(output).digest("hex");
 console.log(`已生成 leetcode_hot100_offline.html`);
-console.log(`题目 ${embeddedProblems.length}，题解 ${Object.keys(solutions).length}，内嵌图片 ${imageData.size}`);
+console.log(`题目 ${problems.length}，题解 ${Object.keys(solutions).length}，内嵌图片 ${imageSources.length}`);
 console.log(`大小 ${(Buffer.byteLength(output) / 1024 / 1024).toFixed(2)} MiB，SHA-256 ${hash}`);
