@@ -19,6 +19,17 @@ const DIFFICULTY = {
 const STATUS_LABEL = { todo: "未开始", attempted: "进行中", solved: "已通过" };
 const bySlug = new Map(PROBLEMS.map((problem, index) => [problem.slug, { problem, index }]));
 const categories = [...new Set(PROBLEMS.map((problem) => problem.category))];
+const problemsByCategory = new Map(categories.map((category) => [
+  category,
+  PROBLEMS.filter((problem) => problem.category === category),
+]));
+const searchTextBySlug = new Map(PROBLEMS.map((problem) => [
+  problem.slug,
+  [problem.frontendId, problem.title, problem.englishTitle, problem.category, ...(problem.tags || [])]
+    .join(" ")
+    .toLowerCase(),
+]));
+const sanitizedContentBySlug = new Map();
 
 const elements = Object.fromEntries([
   "storage-warning", "catalog-view", "study-view", "category-grid", "search-input",
@@ -37,6 +48,7 @@ const elements = Object.fromEntries([
 let storageAvailable = true;
 let currentSlug = null;
 let saveTimer = null;
+let catalogRenderFrame = null;
 let state = loadState();
 
 function blankState() {
@@ -146,8 +158,7 @@ function matchesFilter(problem) {
   const difficulty = elements.difficulty_filter.value;
   const status = elements.status_filter.value;
   const record = recordFor(problem.slug, false);
-  const searchable = [problem.frontendId, problem.title, problem.englishTitle, problem.category, ...(problem.tags || [])].join(" ").toLowerCase();
-  if (keyword && !searchable.includes(keyword)) return false;
+  if (keyword && !searchTextBySlug.get(problem.slug).includes(keyword)) return false;
   if (difficulty !== "all" && problem.difficulty !== difficulty) return false;
   if (status === "noted" && !(record.note || "").trim()) return false;
   if (!["all", "noted"].includes(status) && statusFor(problem.slug) !== status) return false;
@@ -159,7 +170,7 @@ function renderCatalog() {
   let visibleCount = 0;
   const cards = [];
   for (const [categoryIndex, category] of categories.entries()) {
-    const allProblems = PROBLEMS.filter((problem) => problem.category === category);
+    const allProblems = problemsByCategory.get(category);
     const problems = allProblems.filter(matchesFilter);
     if (!problems.length) continue;
     visibleCount += problems.length;
@@ -181,6 +192,14 @@ function renderCatalog() {
   elements.category_grid.innerHTML = visibleCount ? cards.join("") : `<div class="empty-state"><strong>没有匹配的题目</strong><br><br>试试清除筛选条件或换一个关键词。</div>`;
 }
 
+function scheduleCatalogRender() {
+  if (catalogRenderFrame != null) cancelAnimationFrame(catalogRenderFrame);
+  catalogRenderFrame = requestAnimationFrame(() => {
+    catalogRenderFrame = null;
+    renderCatalog();
+  });
+}
+
 function sanitizeOfficialContent(html) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -196,6 +215,13 @@ function sanitizeOfficialContent(html) {
     link.rel = "noopener noreferrer";
   });
   return template.innerHTML;
+}
+
+function officialContentFor(problem) {
+  if (!sanitizedContentBySlug.has(problem.slug)) {
+    sanitizedContentBySlug.set(problem.slug, sanitizeOfficialContent(problem.content));
+  }
+  return sanitizedContentBySlug.get(problem.slug);
 }
 
 function updateMasteredButton() {
@@ -223,7 +249,7 @@ function openProblem(slug, updateHash = true) {
   elements.next_button.disabled = index === PROBLEMS.length - 1;
   const difficulty = DIFFICULTY[problem.difficulty];
   elements.problem_kicker.innerHTML = `<span class="difficulty ${difficulty.className}">${difficulty.label}</span><span class="tag">${escapeHtml(problem.category)}</span>${(problem.tags || []).slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}`;
-  elements.official_content.innerHTML = sanitizeOfficialContent(problem.content);
+  elements.official_content.innerHTML = officialContentFor(problem);
   elements.code_editor.value = record.code ?? problem.starterCode;
   elements.notes_editor.value = record.note || "";
   elements.solution_note.textContent = solution.note;
@@ -253,8 +279,12 @@ function showCatalog(updateHash = true) {
 function route() {
   const match = location.hash.match(/^#problem=(.+)$/);
   if (match) {
-    const slug = decodeURIComponent(match[1]);
-    if (bySlug.has(slug)) return openProblem(slug, false);
+    try {
+      const slug = decodeURIComponent(match[1]);
+      if (bySlug.has(slug)) return openProblem(slug, false);
+    } catch (error) {
+      // Treat malformed hashes as the catalog route.
+    }
   }
   showCatalog(false);
 }
@@ -476,7 +506,15 @@ async function copyText(text) {
   } catch (error) {
     const area = document.createElement("textarea");
     area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
-    document.body.append(area); area.select(); document.execCommand("copy"); area.remove();
+    let copied = false;
+    document.body.append(area);
+    try {
+      area.select();
+      copied = document.execCommand("copy");
+    } finally {
+      area.remove();
+    }
+    if (!copied) throw new Error("浏览器未允许复制到剪贴板");
   }
 }
 
@@ -569,6 +607,7 @@ function runtimeAssets() {
     stdlibBytes: bytesFromBase64(RUNTIME_BASE64.stdlib),
     lock: PYODIDE_LOCK,
   };
+  for (const key of Object.keys(RUNTIME_BASE64)) RUNTIME_BASE64[key] = "";
   return decodedRuntime;
 }
 
@@ -741,6 +780,15 @@ function prewarmJudge() {
   else setTimeout(start, 500);
 }
 
+function releaseRuntimeUrls() {
+  if (judgeWorker) judgeWorker.terminate();
+  if (!runtimeUrls) return;
+  for (const [key, value] of Object.entries(runtimeUrls)) {
+    if (key.endsWith("Url") && typeof value === "string") URL.revokeObjectURL(value);
+  }
+  runtimeUrls = null;
+}
+
 function renderResults(result, mode) {
   elements.result_panel.className = "result-panel open";
   if (result.fatal) {
@@ -768,7 +816,8 @@ function renderResults(result, mode) {
 
 async function runEvaluation(mode) {
   if (!currentSlug) return;
-  const solution = SOLUTIONS[currentSlug];
+  const slug = currentSlug;
+  const solution = SOLUTIONS[slug];
   const code = elements.code_editor.value;
   if (!code.trim()) return toast("请先输入 Python 代码", "error");
   touchRecord("code");
@@ -786,22 +835,26 @@ async function runEvaluation(mode) {
   elements.submit_button.textContent = mode === "submit" ? "评测中…" : "提交评估";
   try {
     const result = await evaluate(payload, mode === "submit" ? 9000 : 6000);
-    renderResults(result, mode);
-    const record = recordFor(currentSlug);
+    const record = recordFor(slug);
     if (mode === "submit") record.attempts = Number(record.attempts || 0) + 1;
     if (mode === "submit" && result.passed) {
       record.status = "solved";
       record.passedAt = new Date().toISOString();
-      toast("全部本地用例通过，已记录进度");
     } else if (record.status !== "solved") {
       record.status = "attempted";
     }
     record.updatedAt = new Date().toISOString();
     saveState(true);
-    updateMasteredButton();
+    if (currentSlug === slug) {
+      renderResults(result, mode);
+      updateMasteredButton();
+      if (mode === "submit" && result.passed) toast("全部本地用例通过，已记录进度");
+    }
   } catch (error) {
-    renderResults({ fatal: error.message || String(error) }, mode);
-    toast(error.message || "评测失败", "error");
+    if (currentSlug === slug) {
+      renderResults({ fatal: error.message || String(error) }, mode);
+      toast(error.message || "评测失败", "error");
+    }
   } finally {
     elements.run_button.disabled = false;
     elements.submit_button.disabled = false;
@@ -818,7 +871,8 @@ elements.category_grid.addEventListener("keydown", (event) => {
   const row = event.target.closest(".problem-row");
   if (row && ["Enter", " "].includes(event.key)) { event.preventDefault(); openProblem(row.dataset.slug); }
 });
-[elements.search_input, elements.difficulty_filter, elements.status_filter].forEach((element) => element.addEventListener("input", renderCatalog));
+elements.search_input.addEventListener("input", scheduleCatalogRender);
+[elements.difficulty_filter, elements.status_filter].forEach((element) => element.addEventListener("change", renderCatalog));
 elements.clear_filter_button.addEventListener("click", () => {
   elements.search_input.value = ""; elements.difficulty_filter.value = "all"; elements.status_filter.value = "all"; renderCatalog();
 });
@@ -859,12 +913,26 @@ elements.reset_code_button.addEventListener("click", () => {
   if (!currentSlug || !confirm("确定把当前代码恢复为初始模板吗？个人笔记和进度不会改变。")) return;
   elements.code_editor.value = bySlug.get(currentSlug).problem.starterCode; touchRecord("code"); updateCursorPosition(); toast("已恢复初始模板");
 });
-elements.copy_solution_button.addEventListener("click", async () => { await copyText(SOLUTIONS[currentSlug].code); toast("参考代码已复制"); });
+elements.copy_solution_button.addEventListener("click", async () => {
+  try {
+    await copyText(SOLUTIONS[currentSlug].code);
+    toast("参考代码已复制");
+  } catch (error) {
+    toast(error.message || "复制失败", "error");
+  }
+});
 elements.run_button.addEventListener("click", () => runEvaluation("sample"));
 elements.submit_button.addEventListener("click", () => runEvaluation("submit"));
 elements.result_panel.addEventListener("click", (event) => {
   if (event.target.closest("#close-results")) elements.result_panel.classList.remove("open");
   const head = event.target.closest(".case-head"); if (head) head.parentElement.classList.toggle("expanded");
+});
+elements.result_panel.addEventListener("keydown", (event) => {
+  const head = event.target.closest(".case-head");
+  if (head && ["Enter", " "].includes(event.key)) {
+    event.preventDefault();
+    head.parentElement.classList.toggle("expanded");
+  }
 });
 elements.export_button.addEventListener("click", openExportModal);
 elements.export_cancel_button.addEventListener("click", closeExportModal);
@@ -890,7 +958,11 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !elements.export_modal.classList.contains("hidden")) closeExportModal();
 });
 window.addEventListener("hashchange", route);
-window.addEventListener("beforeunload", () => { if (currentSlug) { touchRecord("code"); touchRecord("note"); } saveState(true); });
+window.addEventListener("beforeunload", () => {
+  if (currentSlug) { touchRecord("code"); touchRecord("note"); }
+  saveState(true);
+  releaseRuntimeUrls();
+});
 
 applyTheme(state.settings.theme);
 changeEditorSize(0);

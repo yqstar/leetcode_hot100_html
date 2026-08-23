@@ -35,7 +35,6 @@
         <section class="hero">
           <div class="hero-copy">
             <p class="eyebrow">Offline Algorithm Lab</p>
-            <h1>把 100 道经典题，练成你的肌肉记忆。</h1>
             <p class="hero-description">一个文件，完整题面、本地 Python 评测、参考题解和个人 Markdown 笔记全部随身携带。无需账号，也无需网络。</p>
             <div class="hero-actions">
               <button id="continue-button" class="button primary" type="button">继续上次练习</button>

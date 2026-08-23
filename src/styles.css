@@ -150,19 +150,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .hero {
   position: relative;
   overflow: hidden;
-  min-height: 260px;
+  min-height: 200px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 36px;
+  gap: 28px;
   align-items: center;
-  padding: 40px 46px;
+  padding: 28px 36px;
   color: white;
   border-radius: 26px;
   background:
     radial-gradient(circle at 83% 15%, rgba(119, 151, 255, .38), transparent 25%),
     radial-gradient(circle at 72% 92%, rgba(88, 219, 177, .18), transparent 30%),
     linear-gradient(135deg, #172857 0%, #253d92 58%, #3f48a5 100%);
-  box-shadow: 0 25px 70px rgba(38, 56, 128, .24);
+  box-shadow: 0 18px 48px rgba(38, 56, 128, .2);
 }
 
 .hero::after {
@@ -177,9 +177,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   box-shadow: 0 0 0 42px rgba(255,255,255,.035), 0 0 0 84px rgba(255,255,255,.025);
 }
 
-.eyebrow { margin: 0 0 13px; color: #bfcaff; font-weight: 750; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
-.hero h1 { margin: 0; max-width: 780px; font-size: clamp(30px, 4vw, 50px); line-height: 1.12; letter-spacing: -1.8px; }
-.hero-description { max-width: 680px; margin: 18px 0 24px; color: #dbe2ff; line-height: 1.8; font-size: 15px; }
+.eyebrow { margin: 0 0 9px; color: #bfcaff; font-weight: 750; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+.hero-description { max-width: 760px; margin: 12px 0 17px; color: #dbe2ff; line-height: 1.65; font-size: 14px; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .hero .button.primary { border-color: white; color: #263d91; background: white; }
 .hero .button.primary:hover { background: #eef1ff; }
@@ -190,17 +189,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   --progress: 0deg;
   position: relative;
   z-index: 1;
-  width: 168px;
-  height: 168px;
+  width: 128px;
+  height: 128px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: conic-gradient(#70e5bd var(--progress), rgba(255,255,255,.15) 0);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 16px 40px rgba(0,0,0,.16);
 }
-.progress-orbit::before { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: #22387e; border: 1px solid rgba(255,255,255,.12); }
+.progress-orbit::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: #22387e; border: 1px solid rgba(255,255,255,.12); }
 .progress-value { position: relative; z-index: 1; text-align: center; }
-.progress-number { display: block; font-size: 39px; font-weight: 800; letter-spacing: -1.8px; }
+.progress-number { display: block; font-size: 31px; font-weight: 800; letter-spacing: -1.2px; }
 .progress-label { display: block; margin-top: 2px; color: #c9d2ff; font-size: 12px; }
 
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0 28px; }
@@ -408,8 +407,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .app-header { padding: 0 15px; }
   .offline-pill, .header-action-label { display: none; }
   .catalog-shell { padding: 20px 14px 48px; }
-  .hero { grid-template-columns: 1fr; padding: 30px 26px; }
-  .progress-orbit { width: 132px; height: 132px; position: absolute; right: 24px; top: 25px; opacity: .22; }
+  .hero { grid-template-columns: 1fr; padding: 25px 24px; }
+  .progress-orbit { width: 108px; height: 108px; position: absolute; right: 20px; top: 20px; opacity: .18; }
   .hero-copy { position: relative; z-index: 2; }
   .catalog-toolbar { top: 75px; flex-wrap: wrap; }
   .search-field { flex-basis: 100%; }
@@ -428,7 +427,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .summary-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
   .summary-card { padding: 15px; }
   .summary-value { font-size: 23px; }
-  .hero h1 { font-size: 31px; }
   .hero-description { font-size: 13px; }
   .header-actions .button { width: 38px; padding: 0; }
   .catalog-toolbar .button { flex: 1; }
