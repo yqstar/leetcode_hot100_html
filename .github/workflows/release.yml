@@ -1,0 +1,48 @@
+name: Release LC Offline
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish compact HTML
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build and test offline files
+        run: node scripts/project.mjs test
+
+      - name: Verify release asset
+        run: test -s lc_offline_compact.html
+
+      - name: Create release and upload compact HTML
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" lc_offline_compact.html --clobber
+          else
+            gh release create "$RELEASE_TAG" lc_offline_compact.html \
+              --verify-tag \
+              --generate-notes \
+              --title "LC Offline $RELEASE_TAG"
+          fi

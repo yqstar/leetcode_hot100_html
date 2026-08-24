@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { gunzipSync, gzipSync } from "node:zlib";
 import vm from "node:vm";
 import solutions from "../src/solutions.mjs";
 import pythonHarness from "../src/python-harness.mjs";
@@ -14,6 +15,83 @@ const safeJson = (value) => JSON.stringify(value)
   .replaceAll("<", "\\u003c")
   .replaceAll("\u2028", "\\u2028")
   .replaceAll("\u2029", "\\u2029");
+
+const compactShell = (compressedApp) => `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="压缩为单个 HTML 的 LC Python 离线训练场">
+  <title>LC Python 离线训练场 · 正在启动</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #080b12; color: #e7ecf7; }
+    main { width: min(520px, calc(100% - 40px)); padding: 28px; border: 1px solid #293249; border-radius: 18px; background: #111725; box-shadow: 0 24px 80px #0008; }
+    h1 { margin: 0 0 10px; font-size: 20px; }
+    p { margin: 0; color: #aeb9ce; line-height: 1.7; }
+    .loader { width: 100%; height: 4px; margin-top: 22px; overflow: hidden; border-radius: 99px; background: #252d40; }
+    .loader::after { content: ""; display: block; width: 42%; height: 100%; border-radius: inherit; background: #7c9cff; animation: loading 1.15s ease-in-out infinite alternate; }
+    pre { display: none; margin: 18px 0 0; padding: 12px; overflow: auto; border-radius: 10px; background: #090d16; color: #ffb4b4; white-space: pre-wrap; }
+    @keyframes loading { from { transform: translateX(-105%); } to { transform: translateX(245%); } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>正在启动离线训练场</h1>
+    <p id="status">正在从这个 HTML 内解压题目、图片和 Python 运行时…</p>
+    <div class="loader" id="loader" aria-hidden="true"></div>
+    <pre id="error"></pre>
+  </main>
+  <script>
+  (() => {
+    "use strict";
+    const COMPRESSED_APP = ${JSON.stringify(compressedApp.toString("base64"))};
+    const status = document.getElementById("status");
+    const loader = document.getElementById("loader");
+    const errorOutput = document.getElementById("error");
+
+    async function start() {
+      if (typeof DecompressionStream !== "function") {
+        throw new Error("当前浏览器不支持本地解压。请升级到最新版 Chrome、Edge、Safari 或 Firefox，或改用 lc_offline.html。");
+      }
+      const binary = atob(COMPRESSED_APP);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const html = await new Response(stream).text();
+      if (!/^<!doctype html>/i.test(html) || !html.includes("const PROBLEMS =")) {
+        throw new Error("压缩内容校验失败，请重新获取该 HTML 文件。");
+      }
+      document.open();
+      document.write(html);
+      document.close();
+    }
+
+    start().catch((error) => {
+      status.textContent = "启动失败";
+      loader.style.display = "none";
+      errorOutput.style.display = "block";
+      errorOutput.textContent = error?.stack || String(error);
+    });
+  })();
+  </script>
+</body>
+</html>
+`;
+
+async function writeArtifact(relativePath, buffer) {
+  const outputPath = new URL(relativePath, root);
+  let previous = null;
+  try {
+    previous = await readFile(outputPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const changed = !previous?.equals(buffer);
+  if (changed) await writeFile(outputPath, buffer);
+  return changed;
+}
 
 async function buildArtifact() {
   const [source, lockText, loader, asmModule, wasm, stdlib] = await Promise.all([
@@ -43,21 +121,22 @@ async function buildArtifact() {
   }
   if (/__[A-Z][A-Z0-9_]+__/.test(output)) throw new Error("HTML 构建占位符未完整替换");
 
-  const outputPath = new URL("leetcode_offline.html", root);
   const outputBuffer = Buffer.from(output);
-  let previous = null;
-  try {
-    previous = await readFile(outputPath);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-  }
-  const changed = !previous?.equals(outputBuffer);
-  if (changed) await writeFile(outputPath, outputBuffer);
+  const compressedBuffer = gzipSync(outputBuffer, { level: 9 });
+  const compactBuffer = Buffer.from(compactShell(compressedBuffer));
+  const [changed, compactChanged] = await Promise.all([
+    writeArtifact("lc_offline.html", outputBuffer),
+    writeArtifact("lc_offline_compact.html", compactBuffer),
+  ]);
 
   const hash = createHash("sha256").update(outputBuffer).digest("hex");
-  console.log(changed ? "已生成 leetcode_offline.html" : "构建产物无变化，跳过写入");
+  console.log(changed ? "已生成 lc_offline.html" : "构建产物无变化，跳过写入");
   console.log(`题目 ${problems.length}，题解 ${Object.keys(solutions).length}，内嵌图片 ${(output.match(/data:image\//gi) || []).length}`);
   console.log(`大小 ${(outputBuffer.byteLength / 1024 / 1024).toFixed(2)} MiB，SHA-256 ${hash}`);
+  const compactHash = createHash("sha256").update(compactBuffer).digest("hex");
+  const compactRatio = (100 * compactBuffer.byteLength / outputBuffer.byteLength).toFixed(1);
+  console.log(compactChanged ? "已生成 lc_offline_compact.html" : "压缩构建产物无变化，跳过写入");
+  console.log(`压缩单文件 ${(compactBuffer.byteLength / 1024 / 1024).toFixed(2)} MiB（原文件的 ${compactRatio}%），SHA-256 ${compactHash}`);
   return output;
 }
 
@@ -325,7 +404,7 @@ async function verifyArtifact(html) {
   const staticHtml = html.slice(0, html.indexOf("<script>"));
   const htmlIds = [...staticHtml.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
-  check(html.includes("const EXPORT_VERSION = 1") && html.includes("LEETCODE_EXPORT_VERSION:") && html.includes("LEETCODE_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
+  check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
   check(html.includes('id="auto-expand-button"') && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "可在顶部设置进入题目时是否自动展开题面");
   check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>') && html.includes('id="custom-case-button"'), "运行与提交操作支持添加自定义样例");
@@ -337,7 +416,7 @@ async function verifyArtifact(html) {
   check(Buffer.byteLength(html) > 15 * 1024 * 1024, "Python、题面和图片已打包进单文件");
   const scriptMatch = html.match(/<script>([\s\S]*)<\/script>\s*<\/body>/i);
   check(Boolean(scriptMatch), "主应用脚本已内嵌");
-  new vm.Script(scriptMatch[1], { filename: "leetcode_offline.inline.js" });
+  new vm.Script(scriptMatch[1], { filename: "lc_offline.inline.js" });
   assertions.push("内嵌 JavaScript 语法正确");
   verifyExportHelpers(html, check);
   verifyStateHelpers(html, check);
@@ -348,6 +427,27 @@ async function verifyArtifact(html) {
   check(difficultyCounts.Easy === 20 && difficultyCounts.Medium === 68 && difficultyCounts.Hard === 12, "难度分布正确");
   check(new Set(problems.map((problem) => problem.category)).size === 17, "题单包含 17 个专题");
   console.log(`PASS 离线构建产物 ${assertions.length} 项校验`);
+}
+
+async function verifyCompactArtifact(html) {
+  const compactHtml = await readFile(new URL("lc_offline_compact.html", root), "utf8");
+  const payloadMatch = compactHtml.match(/const COMPRESSED_APP = "([A-Za-z0-9+/=]+)";/);
+  if (!payloadMatch) throw new Error("压缩单文件缺少内嵌应用数据");
+  const expandedHtml = gunzipSync(Buffer.from(payloadMatch[1], "base64")).toString("utf8");
+  if (expandedHtml !== html) throw new Error("压缩单文件解压后与标准离线产物不一致");
+  if (!compactHtml.includes('new DecompressionStream("gzip")') || !compactHtml.includes("document.write(html)")) {
+    throw new Error("压缩单文件缺少浏览器内解压启动逻辑");
+  }
+  if (/<script\b[^>]*\bsrc\s*=|<link\b[^>]*\brel=["']?stylesheet|https?:\/\//i.test(compactHtml)) {
+    throw new Error("压缩单文件仍包含外部资源依赖");
+  }
+  if (Buffer.byteLength(compactHtml) >= Buffer.byteLength(html)) {
+    throw new Error("压缩单文件体积没有小于标准离线产物");
+  }
+  const scriptMatch = compactHtml.match(/<script>([\s\S]*)<\/script>\s*<\/body>/i);
+  if (!scriptMatch) throw new Error("压缩单文件缺少启动脚本");
+  new vm.Script(scriptMatch[1], { filename: "lc_offline_compact.inline.js" });
+  console.log("PASS 压缩单文件可完整还原标准离线应用，且没有外部依赖");
 }
 
 const command = process.argv[2];
@@ -364,6 +464,7 @@ if (process.argv.includes("--memory-runtime")) {
   await testPyodide();
   testMemoryRuntimeInChild();
   await verifyArtifact(html);
+  await verifyCompactArtifact(html);
   console.log("全部测试通过");
 } else {
   console.error("用法：node scripts/project.mjs <build|test>");

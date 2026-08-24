@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="完全离线的 LeetCode Python 学习与评测工具">
+  <meta name="description" content="完全离线的 LC Python 学习与评测工具">
   <title>Python 离线训练场</title>
   <style>
 :root {
@@ -535,7 +535,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
       <div class="brand-mark" aria-hidden="true">Py</div>
       <div class="brand-copy">
         <div class="brand-title">Python 离线训练场</div>
-        <div class="brand-subtitle">LeetCode 算法题 · 题面、评测、题解与笔记</div>
+        <div class="brand-subtitle">LC 算法题 · 题面、评测、题解与笔记</div>
       </div>
     </div>
     <div class="header-actions">
@@ -587,7 +587,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
         </section>
 
         <div id="category-grid" class="category-grid"></div>
-        <footer class="catalog-footer">题单快照：2026-08-23 · 题面版权归 LeetCode 及原作者 · Python 运行时：Pyodide 314.0.4（MPL-2.0）与 CPython</footer>
+        <footer class="catalog-footer">题单快照：2026-08-23 · 题面版权归 LC 及原作者 · Python 运行时：Pyodide 314.0.4（MPL-2.0）与 CPython</footer>
       </div>
     </section>
 
@@ -612,7 +612,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
             <div id="problem-kicker" class="problem-kicker"></div>
             <h1 id="problem-title"></h1>
             <div id="official-content" class="official-content"></div>
-            <div class="source-note">题面来自力扣 LeetCode 题单的离线快照，仅用于个人学习。网页中的本地评测是练习辅助，不等同于力扣官方判题。</div>
+            <div class="source-note">题面来自力扣 LC 题单的离线快照，仅用于个人学习。网页中的本地评测是练习辅助，不等同于力扣官方判题。</div>
           </div>
         </article>
 
@@ -707,7 +707,7 @@ const RUNTIME_BASE64 = {
   stdlib: "__PYODIDE_STDLIB_B64__",
 };
 
-const STORAGE_KEY = "leetcode-offline:v1";
+const STORAGE_KEY = "lc-offline:v1";
 const STATE_VERSION = 1;
 const EXPORT_VERSION = 1;
 const MAX_CUSTOM_CASES = 20;
@@ -1238,10 +1238,10 @@ function exportMarkdown(includeCode = false) {
   syncCurrentEditors(true);
   const stats = statistics();
   const lines = [
-    "# LeetCode 学习记录", "",
+    "# LC 学习记录", "",
     `> 由 Python 离线训练场导出于 ${new Date().toLocaleString("zh-CN")}。`, "",
-    `<!-- LEETCODE_EXPORT_VERSION:${EXPORT_VERSION} -->`,
-    `<!-- LEETCODE_EXPORT_OPTIONS ${JSON.stringify({ includeCode })} -->`, "",
+    `<!-- LC_EXPORT_VERSION:${EXPORT_VERSION} -->`,
+    `<!-- LC_EXPORT_OPTIONS ${JSON.stringify({ includeCode })} -->`, "",
     `- 进度：**${stats.solved} / ${PROBLEMS.length}**`,
     `- 进行中：${stats.attempted}`, `- 笔记：${stats.noted}`, `- 提交：${stats.submissions} 次`, "",
     "## 题目、笔记与个人代码", "",
@@ -1268,13 +1268,13 @@ function exportMarkdown(includeCode = false) {
     lines.push(`| ${cells.join(" | ")} |`);
   }
   lines.push("", "<!-- 以下数据用于重新导入，不会显示在渲染后的表格中。 -->");
-  for (const metadata of metadataRecords) lines.push(`<!-- LEETCODE_RECORD ${JSON.stringify(metadata)} -->`);
+  for (const metadata of metadataRecords) lines.push(`<!-- LC_RECORD ${JSON.stringify(metadata)} -->`);
   const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   anchor.href = url;
-  anchor.download = `leetcode-progress-${stamp}.md`;
+  anchor.download = `lc-progress-${stamp}.md`;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   toast(includeCode ? "题目、笔记和个人代码表格已导出" : "题目与笔记表格已导出");
@@ -1299,10 +1299,10 @@ function finalizeImport(importedRecords, skippedCount) {
 }
 
 function importMarkdown(text) {
-  const versionMatch = text.match(/<!-- LEETCODE_EXPORT_VERSION:(\d+) -->/);
+  const versionMatch = text.match(/<!-- LC_EXPORT_VERSION:(\d+) -->/);
   if (!versionMatch) throw new Error("缺少导出版本信息");
   if (Number(versionMatch[1]) !== EXPORT_VERSION) throw new Error(`不支持的导出版本：${versionMatch[1]}`);
-  const optionsMatch = text.match(/<!-- LEETCODE_EXPORT_OPTIONS (\{[^\n]+\}) -->/);
+  const optionsMatch = text.match(/<!-- LC_EXPORT_OPTIONS (\{[^\n]+\}) -->/);
   if (!optionsMatch) throw new Error("缺少导出选项信息");
   let includeCode;
   try {
@@ -1315,7 +1315,7 @@ function importMarkdown(text) {
 
   const importedRecords = new Map();
   let skippedCount = 0;
-  const recordPattern = /<!-- LEETCODE_RECORD (\{[^\n]+\}) -->/g;
+  const recordPattern = /<!-- LC_RECORD (\{[^\n]+\}) -->/g;
   let match;
   while ((match = recordPattern.exec(text))) {
     try {
@@ -1492,7 +1492,7 @@ function startWorkerJudge() {
     };
     try {
       workerUrl = URL.createObjectURL(new Blob([JUDGE_WORKER_SOURCE], { type: "text/javascript" }));
-      worker = new Worker(workerUrl, { name: "leetcode-python-judge" });
+      worker = new Worker(workerUrl, { name: "lc-python-judge" });
       judgeWorker = worker;
       initTimer = setTimeout(() => fail(new Error("Python Worker 启动超时")), 20000);
       worker.onmessage = (event) => {
@@ -1538,8 +1538,8 @@ async function startMainThreadJudge(workerError) {
   if (!loaderSource.includes("return { loadPyodide: dt") || !asmModuleSource.includes("return _createPyodideModule")) {
     throw new Error("无法解析内嵌 Python 模块");
   }
-  const loader = new Function(`${loaderSource}\n//# sourceURL=leetcode-pyodide-loader.js`)();
-  const createPyodideModule = new Function(`${asmModuleSource}\n//# sourceURL=leetcode-pyodide-asm.js`)();
+  const loader = new Function(`${loaderSource}\n//# sourceURL=lc-pyodide-loader.js`)();
+  const createPyodideModule = new Function(`${asmModuleSource}\n//# sourceURL=lc-pyodide-asm.js`)();
   const originalFetch = globalThis.fetch;
   const nativeFetch = originalFetch.bind(globalThis);
   globalThis.fetch = (input, options) => {
