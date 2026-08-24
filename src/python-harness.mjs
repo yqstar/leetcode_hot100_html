@@ -269,14 +269,22 @@ def execute(source, meta, raw_case):
     with contextlib.redirect_stdout(output_buffer):
         exec(source, ns)
         if meta.get('kind') == 'class':
+            operations = raw_case.get('ops') if isinstance(raw_case, dict) else None
+            operation_args = raw_case.get('args') if isinstance(raw_case, dict) else None
+            if not isinstance(operations, list) or not isinstance(operation_args, list) or not operations:
+                raise ValueError('设计题输入必须包含非空的 ops 和 args 数组')
+            if len(operations) != len(operation_args) or operations[0] != meta['className']:
+                raise ValueError('设计题的 ops、args 或构造器名称无效')
             instance = None
             outputs = []
-            for index, (operation, operation_args) in enumerate(zip(raw_case['ops'], raw_case['args'])):
+            for index, (operation, args) in enumerate(zip(operations, operation_args)):
+                if not isinstance(args, list):
+                    raise ValueError('设计题的每项参数必须是数组')
                 if index == 0:
-                    instance = ns[meta['className']](*operation_args)
+                    instance = ns[meta['className']](*args)
                     outputs.append(None)
                 else:
-                    outputs.append(to_plain(getattr(instance, operation)(*operation_args)))
+                    outputs.append(to_plain(getattr(instance, operation)(*args)))
             result = outputs
         else:
             solution = ns['Solution']()
@@ -315,6 +323,7 @@ def run_payload(payload):
             error = traceback.format_exc(limit=8)
         results.append({
             'index': item['index'], 'visible': item.get('visible', False),
+            'label': item.get('label'),
             'passed': passed, 'input': safe_display(to_plain(raw_case)),
             'expected': safe_display(expected), 'actual': safe_display(actual),
             'stdout': stdout[-4000:], 'error': error,

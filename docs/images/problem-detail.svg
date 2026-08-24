@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Python 离线训练场题目详情页</title>
+  <desc id="desc">深色模式下的题目详情界面，左侧是题面，右侧是 Python 编辑器、运行结果、自定义样例以及运行和提交按钮。</desc>
+  <defs>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#3157e8"/>
+      <stop offset="1" stop-color="#6d43de"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.20"/>
+    </filter>
+    <style>
+      .ui { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .mono { font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace; }
+      .text { fill: #edf1f8; }
+      .muted { fill: #a7b0c2; }
+      .faint { fill: #7f899e; }
+      .surface { fill: #171d2a; stroke: #2b3446; }
+      .surface2 { fill: #1c2332; stroke: #2b3446; }
+      .button { fill: #171d2a; stroke: #2b3446; }
+      .small { font-size: 12px; }
+      .code { font-size: 13px; }
+    </style>
+  </defs>
+
+  <g class="ui">
+    <rect width="1440" height="900" fill="#0f1420"/>
+    <rect x="0.5" y="0.5" width="1439" height="67" fill="#171d2a" stroke="#2b3446"/>
+    <rect x="26" y="14" width="40" height="40" rx="12" fill="url(#mark)"/>
+    <text x="46" y="40" text-anchor="middle" fill="#fff" font-size="15" font-weight="800">Py</text>
+    <text x="78" y="31" class="text" font-size="15" font-weight="750">Python 离线训练场</text>
+    <text x="78" y="50" class="muted" font-size="12">LeetCode 算法题 · 题面、评测、题解与笔记</text>
+    <rect x="967" y="19" width="88" height="31" rx="16" class="surface2"/>
+    <circle cx="984" cy="34.5" r="4" fill="#5fd0a5"/>
+    <text x="996" y="39" class="muted small">完全离线</text>
+    <rect x="1065" y="14" width="112" height="40" rx="10" class="button"/>
+    <rect x="1077" y="26" width="28" height="16" rx="8" fill="#7c98ff"/>
+    <circle cx="1097" cy="34" r="5" fill="#fff"/>
+    <text x="1113" y="39" class="text" font-size="13" font-weight="650">默认展开</text>
+    <rect x="1187" y="14" width="75" height="40" rx="10" class="button"/>
+    <text x="1224.5" y="39" text-anchor="middle" class="text" font-size="13" font-weight="650">↥ 导入</text>
+    <rect x="1272" y="14" width="75" height="40" rx="10" class="button"/>
+    <text x="1309.5" y="39" text-anchor="middle" class="text" font-size="13" font-weight="650">↧ 导出</text>
+    <rect x="1357" y="15" width="38" height="38" rx="10" class="button"/>
+    <circle cx="1376" cy="34" r="7" fill="#edf1f8"/><path d="M1376 27a7 7 0 0 0 0 14z" fill="#171d2a"/>
+
+    <rect x="0" y="68" width="1440" height="52" fill="#171d2a" stroke="#2b3446"/>
+    <text x="27" y="100" class="muted" font-size="13">← 返回目录</text>
+    <rect x="117" y="79" width="84" height="30" rx="9" fill="#222d52" stroke="#44557f"/>
+    <text x="159" y="99" text-anchor="middle" fill="#7c98ff" font-size="12" font-weight="650">收起题目</text>
+    <text x="220" y="99" class="muted small">1 / 100</text>
+    <text x="272" y="99" class="text" font-size="13" font-weight="700">1. 两数之和</text>
+    <rect x="1210" y="79" width="31" height="31" rx="9" class="button"/><text x="1225.5" y="101" text-anchor="middle" class="muted" font-size="20">‹</text>
+    <rect x="1249" y="79" width="31" height="31" rx="9" class="button"/><text x="1264.5" y="101" text-anchor="middle" class="muted" font-size="20">›</text>
+    <rect x="1290" y="79" width="123" height="31" rx="9" class="button"/><text x="1351.5" y="99" text-anchor="middle" class="muted small">标记已掌握</text>
+
+    <rect x="0" y="120" width="619" height="780" fill="#171d2a"/>
+    <line x1="619" y1="120" x2="619" y2="900" stroke="#2b3446"/>
+    <rect x="38" y="158" width="48" height="24" rx="7" fill="#183b33"/>
+    <text x="62" y="175" text-anchor="middle" fill="#5fd0a5" font-size="11" font-weight="650">简单</text>
+    <rect x="94" y="158" width="38" height="24" rx="7" fill="#252d3d"/><text x="113" y="175" text-anchor="middle" class="muted" font-size="11">数组</text>
+    <rect x="140" y="158" width="38" height="24" rx="7" fill="#252d3d"/><text x="159" y="175" text-anchor="middle" class="muted" font-size="11">哈希</text>
+    <text x="38" y="225" class="text" font-size="26" font-weight="780">1. 两数之和</text>
+    <text x="38" y="268" class="text" font-size="15">给定一个整数数组 nums 和一个整数目标值 target，</text>
+    <text x="38" y="295" class="text" font-size="15">请你在该数组中找出和为目标值的两个整数，并返回</text>
+    <text x="38" y="322" class="text" font-size="15">它们的数组下标。</text>
+    <text x="38" y="365" class="text" font-size="15">你可以假设每种输入只会对应一个答案，并且不能使用</text>
+    <text x="38" y="392" class="text" font-size="15">两次相同的元素。</text>
+    <text x="38" y="445" class="text" font-size="18" font-weight="730">示例 1</text>
+    <rect x="38" y="462" width="540" height="132" rx="12" class="surface2" filter="url(#soft)"/>
+    <text x="58" y="493" class="mono muted" font-size="13">输入：nums = [2, 7, 11, 15], target = 9</text>
+    <text x="58" y="524" class="mono muted" font-size="13">输出：[0, 1]</text>
+    <text x="58" y="555" class="mono muted" font-size="13">解释：nums[0] + nums[1] == 9</text>
+    <text x="38" y="647" class="text" font-size="18" font-weight="730">提示</text>
+    <text x="38" y="679" class="muted" font-size="14">• 2 ≤ nums.length ≤ 10⁴</text>
+    <text x="38" y="706" class="muted" font-size="14">• -10⁹ ≤ nums[i], target ≤ 10⁹</text>
+    <text x="38" y="733" class="muted" font-size="14">• 只会存在一个有效答案</text>
+    <line x1="38" y1="785" x2="578" y2="785" stroke="#2b3446"/>
+    <text x="38" y="817" class="faint" font-size="11">题面来自力扣 LeetCode 题单的离线快照，仅用于个人学习。</text>
+
+    <rect x="620" y="120" width="820" height="780" fill="#171d2a"/>
+    <rect x="620" y="120" width="820" height="48" fill="#1c2332"/>
+    <line x1="620" y1="168" x2="1440" y2="168" stroke="#2b3446"/>
+    <rect x="634" y="128" width="98" height="40" rx="9" fill="#171d2a"/>
+    <text x="683" y="153" text-anchor="middle" fill="#7c98ff" font-size="13" font-weight="650">Python 代码</text>
+    <line x1="646" y1="167" x2="720" y2="167" stroke="#7c98ff" stroke-width="2"/>
+    <text x="766" y="153" text-anchor="middle" class="muted" font-size="13" font-weight="650">个人笔记</text>
+    <text x="857" y="153" text-anchor="middle" class="muted" font-size="13" font-weight="650">参考题解</text>
+
+    <rect x="620" y="168" width="820" height="44" fill="#171d2a"/>
+    <line x1="620" y1="212" x2="1440" y2="212" stroke="#2b3446"/>
+    <rect x="634" y="177" width="70" height="26" rx="7" fill="#222d52"/>
+    <text x="669" y="195" text-anchor="middle" fill="#7c98ff" font-size="11" font-weight="750">Python 3</text>
+    <text x="715" y="195" class="faint" font-size="11">已保存</text>
+    <rect x="1270" y="176" width="78" height="28" rx="8" class="button"/><text x="1309" y="195" text-anchor="middle" class="muted" font-size="11">−　14　＋</text>
+    <text x="1360" y="195" class="muted" font-size="11">重置模板</text>
+
+    <rect x="620" y="212" width="820" height="332" fill="#171d2a"/>
+    <g class="mono code">
+      <text x="645" y="246" fill="#58647a">1</text><text x="677" y="246" fill="#b7c4ff">class</text><text x="720" y="246" class="text"> Solution:</text>
+      <text x="645" y="275" fill="#58647a">2</text><text x="701" y="275" fill="#b7c4ff">def</text><text x="728" y="275" fill="#9bd7c4"> twoSum</text><text x="784" y="275" class="text">(self, nums, target):</text>
+      <text x="645" y="304" fill="#58647a">3</text><text x="725" y="304" class="text">seen = {}</text>
+      <text x="645" y="333" fill="#58647a">4</text><text x="725" y="333" fill="#b7c4ff">for</text><text x="751" y="333" class="text"> index, value </text><text x="852" y="333" fill="#b7c4ff">in</text><text x="871" y="333" class="text"> enumerate(nums):</text>
+      <text x="645" y="362" fill="#58647a">5</text><text x="749" y="362" class="text">needed = target - value</text>
+      <text x="645" y="391" fill="#58647a">6</text><text x="749" y="391" fill="#b7c4ff">if</text><text x="768" y="391" class="text"> needed </text><text x="829" y="391" fill="#b7c4ff">in</text><text x="848" y="391" class="text"> seen:</text>
+      <text x="645" y="420" fill="#58647a">7</text><text x="773" y="420" fill="#b7c4ff">return</text><text x="821" y="420" class="text"> [seen[needed], index]</text>
+      <text x="645" y="449" fill="#58647a">8</text><text x="749" y="449" class="text">seen[value] = index</text>
+      <text x="645" y="478" fill="#58647a">9</text>
+    </g>
+    <rect x="620" y="516" width="820" height="28" fill="#1c2332"/>
+    <line x1="620" y1="516" x2="1440" y2="516" stroke="#2b3446"/>
+    <text x="634" y="535" class="faint" font-size="10">Tab = 4 空格 · ⌘/Ctrl + Enter 运行</text>
+    <text x="1420" y="535" text-anchor="end" class="faint" font-size="10">Ln 8, Col 28</text>
+
+    <rect x="620" y="544" width="820" height="246" fill="#1c2332"/>
+    <line x1="620" y1="544" x2="1440" y2="544" stroke="#2b3446"/>
+    <rect x="620" y="544" width="820" height="44" fill="#1c2332"/>
+    <line x1="620" y1="588" x2="1440" y2="588" stroke="#2b3446"/>
+    <text x="637" y="572" fill="#5fd0a5" font-size="14" font-weight="750">运行通过</text>
+    <rect x="1367" y="551" width="57" height="29" rx="8" fill="none" stroke="#2b3446"/>
+    <text x="1395.5" y="571" text-anchor="middle" class="muted" font-size="11">收起</text>
+
+    <rect x="634" y="600" width="792" height="55" rx="10" class="surface"/>
+    <circle cx="656" cy="627.5" r="9" fill="#15966b"/>
+    <text x="656" y="632" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">✓</text>
+    <text x="675" y="632" class="text" font-size="13" font-weight="650">样例 1</text>
+    <text x="1408" y="632" text-anchor="end" class="faint" font-size="11">0.8 ms</text>
+    <rect x="634" y="666" width="792" height="55" rx="10" class="surface"/>
+    <circle cx="656" cy="693.5" r="9" fill="#15966b"/>
+    <text x="656" y="698" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">✓</text>
+    <text x="675" y="698" class="text" font-size="13" font-weight="650">样例 2</text>
+    <text x="1408" y="698" text-anchor="end" class="faint" font-size="11">0.7 ms</text>
+    <rect x="634" y="732" width="792" height="45" rx="10" fill="#171d2a" stroke="#2b3446"/>
+    <circle cx="656" cy="754.5" r="9" fill="#15966b"/>
+    <text x="656" y="759" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">✓</text>
+    <text x="675" y="759" class="text" font-size="13" font-weight="650">自定义样例 1</text>
+    <text x="1408" y="759" text-anchor="end" class="faint" font-size="11">0.6 ms</text>
+
+    <rect x="620" y="790" width="820" height="78" fill="#171d2a"/>
+    <line x1="620" y1="790" x2="1440" y2="790" stroke="#2b3446"/>
+    <circle cx="641" cy="829" r="4" fill="#5fd0a5"/>
+    <text x="652" y="834" class="muted" font-size="11">Python 运行时已就绪</text>
+    <rect x="784" y="811" width="94" height="36" rx="9" class="button"/>
+    <text x="831" y="834" text-anchor="middle" class="text" font-size="12" font-weight="650">＋ 添加样例</text>
+    <rect x="1255" y="807" width="72" height="42" rx="10" class="button"/>
+    <text x="1291" y="833" text-anchor="middle" class="text" font-size="13" font-weight="650">运行</text>
+    <rect x="1336" y="807" width="86" height="42" rx="10" fill="#7c98ff" stroke="#7c98ff"/>
+    <text x="1379" y="833" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">提交</text>
+
+    <text x="1030" y="887" text-anchor="middle" class="faint" font-size="11">题目详情页 · 深色模式界面示意</text>
+  </g>
+</svg>

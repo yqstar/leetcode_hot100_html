@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="完全离线的 LeetCode 热题 100 Python 学习与评测工具">
-  <title>Hot 100 · Python 离线训练场</title>
+  <meta name="description" content="完全离线的 LeetCode Python 学习与评测工具">
+  <title>Python 离线训练场</title>
   <style>
 :root {
   color-scheme: light;
@@ -141,6 +141,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .button:disabled { opacity: .52; cursor: not-allowed; transform: none; }
 .icon-button { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-size: 17px; }
 
+.setting-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.setting-toggle-track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background .18s ease;
+}
+.setting-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 20, 32, .28);
+  transition: transform .18s ease;
+}
+.setting-toggle[aria-checked="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: var(--accent-soft); }
+.setting-toggle[aria-checked="true"] .setting-toggle-track { background: var(--accent); }
+.setting-toggle[aria-checked="true"] .setting-toggle-track::after { transform: translateX(12px); }
+
 .offline-pill {
   display: flex;
   align-items: center;
@@ -210,6 +236,31 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .progress-value { position: relative; z-index: 1; text-align: center; }
 .progress-number { display: block; font-size: 31px; font-weight: 800; letter-spacing: -1.2px; }
 .progress-label { display: block; margin-top: 2px; color: #c9d2ff; font-size: 12px; }
+
+[data-theme="dark"] .hero {
+  border: 1px solid #2b3856;
+  background:
+    radial-gradient(circle at 83% 15%, rgba(105, 132, 218, .16), transparent 27%),
+    radial-gradient(circle at 72% 92%, rgba(73, 176, 151, .08), transparent 31%),
+    linear-gradient(135deg, #151d2f 0%, #1a2742 58%, #252d50 100%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .3);
+}
+[data-theme="dark"] .hero::after {
+  border-color: rgba(162, 180, 232, .12);
+  box-shadow: 0 0 0 42px rgba(123, 145, 211, .025), 0 0 0 84px rgba(123, 145, 211, .018);
+}
+[data-theme="dark"] .eyebrow { color: #91a5dc; }
+[data-theme="dark"] .hero-description { color: #b8c2d8; }
+[data-theme="dark"] .hero .button.primary { border-color: #dce4f7; color: #1d2b4d; background: #dce4f7; }
+[data-theme="dark"] .hero .button.primary:hover { border-color: #eef2fb; background: #eef2fb; }
+[data-theme="dark"] .hero .button.secondary { border-color: rgba(170, 187, 231, .2); color: #d9e0f0; background: rgba(151, 170, 221, .08); }
+[data-theme="dark"] .hero .button.secondary:hover { background: rgba(151, 170, 221, .14); }
+[data-theme="dark"] .progress-orbit {
+  background: conic-gradient(#58c7a0 var(--progress), rgba(148, 166, 216, .13) 0);
+  box-shadow: inset 0 0 0 1px rgba(160, 178, 226, .1), 0 16px 40px rgba(0, 0, 0, .24);
+}
+[data-theme="dark"] .progress-orbit::before { border-color: rgba(160, 178, 226, .1); background: #172139; }
+[data-theme="dark"] .progress-label { color: #aab7d1; }
 
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0 28px; }
 .summary-card { padding: 20px 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
@@ -339,6 +390,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .notes-editor { padding: 26px 28px 80px; line-height: 1.8; white-space: pre-wrap; }
 .editor-statusbar { flex: 0 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 13px; border-top: 1px solid var(--line); color: var(--faint); background: var(--surface-2); font-size: 10px; }
 .runbar { flex: 0 0 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+.runbar-leading, .run-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .runtime-status { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--muted); font-size: 11px; }
 .runtime-status .offline-dot { background: var(--faint); box-shadow: none; }
 .runtime-status.ready .offline-dot { background: var(--green); }
@@ -365,6 +417,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .case-label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; font-weight: 700; }
 .case-value { margin: 0; padding: 8px 10px; overflow: auto; border-radius: 8px; color: var(--text); background: var(--surface-2); font: 11px/1.55 "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; }
 .case-value.error { color: var(--red); background: var(--red-soft); }
+
+.sample-modal-card { width: min(680px, 100%); }
+.sample-modal-card > p { margin-bottom: 14px; }
+.sample-format-tip { margin-bottom: 16px; padding: 10px 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-size: 12px; line-height: 1.6; }
+.sample-format-tip summary { cursor: pointer; font-weight: 700; }
+.sample-format-tip pre { margin: 9px 0 0; max-height: 130px; overflow: auto; font: 11px/1.55 "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; }
+.custom-case-list { display: grid; gap: 10px; max-height: min(46vh, 430px); overflow: auto; padding-right: 3px; }
+.custom-case-list .empty-state { padding: 30px 16px; }
+.custom-case-editor { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.custom-case-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 700; }
+.custom-case-remove { color: var(--red); }
+.custom-case-input { display: block; width: 100%; min-height: 105px; padding: 11px 12px; resize: vertical; color: var(--text); border: 0; outline: 0; background: var(--surface); font: 12px/1.55 "SFMono-Regular", Consolas, monospace; }
 
 .notes-empty-tip { padding: 12px 16px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--accent-soft); font-size: 12px; line-height: 1.6; }
 .solution-scroll { min-height: 0; flex: 1; overflow: auto; padding: 28px 30px 70px; }
@@ -450,6 +514,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .tab-button { white-space: nowrap; }
   .editor-toolbar { flex-wrap: wrap; height: auto; flex-basis: auto; }
   .code-editor { padding-inline: 14px; }
+  .runbar { flex-wrap: wrap; height: auto; flex-basis: auto; }
+  .runbar-leading, .run-actions { width: 100%; justify-content: space-between; }
+  .run-actions .button { flex: 1; }
 }
 
 @media print {
@@ -465,16 +532,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 
   <header class="app-header">
     <div class="brand" role="banner">
-      <div class="brand-mark" aria-hidden="true">H100</div>
+      <div class="brand-mark" aria-hidden="true">Py</div>
       <div class="brand-copy">
         <div class="brand-title">Python 离线训练场</div>
-        <div class="brand-subtitle">LeetCode 热题 100 · 题面、评测、题解与笔记</div>
+        <div class="brand-subtitle">LeetCode 算法题 · 题面、评测、题解与笔记</div>
       </div>
     </div>
     <div class="header-actions">
       <div class="offline-pill" title="所有题面、图片、运行时和评测数据均已内嵌">
         <span class="offline-dot"></span><span>完全离线</span>
       </div>
+      <button id="auto-expand-button" class="button setting-toggle" type="button" role="switch" aria-checked="false" aria-label="进入题目时自动展开题面" title="进入题目时默认收起题面">
+        <span class="setting-toggle-track" aria-hidden="true"></span><span class="header-action-label">默认展开</span>
+      </button>
       <button id="import-button" class="button" type="button" title="导入 Markdown 学习记录"><span aria-hidden="true">↥</span> <span class="header-action-label">导入</span></button>
       <button id="export-button" class="button" type="button" title="导出 Markdown 学习记录"><span aria-hidden="true">↧</span> <span class="header-action-label">导出</span></button>
       <button id="theme-button" class="icon-button" type="button" aria-label="切换深色模式" title="切换明暗主题">◐</button>
@@ -542,7 +612,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
             <div id="problem-kicker" class="problem-kicker"></div>
             <h1 id="problem-title"></h1>
             <div id="official-content" class="official-content"></div>
-            <div class="source-note">题面来自力扣 LeetCode 热题 100 学习计划的离线快照，仅用于个人学习。网页中的本地评测是练习辅助，不等同于力扣官方判题。</div>
+            <div class="source-note">题面来自力扣 LeetCode 题单的离线快照，仅用于个人学习。网页中的本地评测是练习辅助，不等同于力扣官方判题。</div>
           </div>
         </article>
 
@@ -562,11 +632,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
               </div>
             </div>
             <textarea id="code-editor" class="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python 代码编辑器"></textarea>
-            <div class="editor-statusbar"><span>Tab = 4 空格 · ⌘/Ctrl + Enter 运行样例</span><span id="cursor-position">Ln 1, Col 1</span></div>
-            <div id="result-panel" class="result-panel"></div>
+            <div class="editor-statusbar"><span>Tab = 4 空格 · ⌘/Ctrl + Enter 运行</span><span id="cursor-position">Ln 1, Col 1</span></div>
+            <div id="result-panel" class="result-panel" aria-live="polite" aria-busy="false"></div>
             <div class="runbar">
-              <div id="runtime-status" class="runtime-status"><span class="offline-dot"></span><span>Python 运行时已内置，将自动准备</span></div>
-              <div class="toolbar-group"><button id="run-button" class="button" type="button">运行样例</button><button id="submit-button" class="button primary" type="button">提交评估</button></div>
+              <div class="runbar-leading">
+                <div id="runtime-status" class="runtime-status"><span class="offline-dot"></span><span>Python 运行时已内置，将自动准备</span></div>
+                <button id="custom-case-button" class="button small" type="button">＋ 添加样例</button>
+              </div>
+              <div class="run-actions"><button id="run-button" class="button" type="button">运行</button><button id="submit-button" class="button primary" type="button">提交</button></div>
             </div>
           </div>
 
@@ -578,7 +651,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 
           <div id="solution-panel" class="workspace-panel">
             <div class="solution-toolbar"><strong>参考题解</strong><button id="copy-solution-button" class="button small" type="button">复制代码</button></div>
-            <div class="solution-scroll"><div class="solution-section"><h2>解题思路</h2><div id="solution-note" class="solution-note"></div><div id="solution-complexity" class="complexity"></div><pre id="reference-code" class="reference-code"></pre><p class="solution-warning">建议先独立完成并提交评估，再展开参考实现对照。参考代码是本地评测的基准实现之一。</p></div></div>
+            <div class="solution-scroll"><div class="solution-section"><h2>解题思路</h2><div id="solution-note" class="solution-note"></div><div id="solution-complexity" class="complexity"></div><pre id="reference-code" class="reference-code"></pre><p class="solution-warning">建议先独立完成并提交，再展开参考实现对照。参考代码是本地评测的基准实现之一。</p></div></div>
           </div>
         </section>
       </div>
@@ -588,15 +661,33 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   <div id="export-modal" class="modal-overlay hidden" role="presentation">
     <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
       <div class="modal-icon" aria-hidden="true">↧</div>
-      <h2 id="export-modal-title">导出 Markdown 清单</h2>
-      <p>导出结果会以紧凑的任务列表为主，并保留进度和个人笔记，之后可以重新导入。</p>
+      <h2 id="export-modal-title">导出 Markdown 表格</h2>
+      <p>每道题占一行，题目名、个人笔记和个人代码会整理在同一张表格中，之后可以重新导入。</p>
       <label class="option-row" for="export-code-checkbox">
-        <span><strong>同时导出个人代码</strong><small>仅包含保存过的代码；关闭后文件会更简洁。</small></span>
+        <span><strong>在表格中包含个人代码</strong><small>关闭后只导出题目名和个人笔记，表格会更简洁。</small></span>
         <input id="export-code-checkbox" type="checkbox">
       </label>
       <div class="modal-actions">
         <button id="export-cancel-button" class="button ghost" type="button">取消</button>
-        <button id="export-confirm-button" class="button primary" type="button">导出清单</button>
+        <button id="export-confirm-button" class="button primary" type="button">导出表格</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="custom-case-modal" class="modal-overlay hidden" role="presentation">
+    <section class="modal-card sample-modal-card" role="dialog" aria-modal="true" aria-labelledby="custom-case-modal-title">
+      <div class="modal-icon" aria-hidden="true">＋</div>
+      <h2 id="custom-case-modal-title">添加运行样例</h2>
+      <p>每个样例填写一段 JSON 输入，最多添加 20 个。运行时会在内置样例之后执行这些自定义样例，并由参考解自动计算期望结果。</p>
+      <details class="sample-format-tip">
+        <summary>查看当前题目的输入格式示例</summary>
+        <pre id="custom-case-template"></pre>
+      </details>
+      <div id="custom-case-list" class="custom-case-list"></div>
+      <div class="modal-actions">
+        <button id="custom-case-add-button" class="button" type="button">＋ 再加一个</button>
+        <button id="custom-case-cancel-button" class="button ghost" type="button">取消</button>
+        <button id="custom-case-save-button" class="button primary" type="button">保存样例</button>
       </div>
     </section>
   </div>
@@ -616,14 +707,20 @@ const RUNTIME_BASE64 = {
   stdlib: "__PYODIDE_STDLIB_B64__",
 };
 
-const STORAGE_KEY = "leetcode-hot100-offline:v1";
-const EXPORT_VERSION = 2;
+const STORAGE_KEY = "leetcode-offline:v1";
+const STATE_VERSION = 1;
+const EXPORT_VERSION = 1;
+const MAX_CUSTOM_CASES = 20;
+const MAX_CUSTOM_CASE_LENGTH = 50_000;
+const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
 const DIFFICULTY = {
   Easy: { label: "简单", className: "easy" },
   Medium: { label: "中等", className: "medium" },
   Hard: { label: "困难", className: "hard" },
 };
 const STATUS_LABEL = { todo: "未开始", attempted: "进行中", solved: "已通过" };
+const VALID_STATUSES = new Set(Object.keys(STATUS_LABEL));
+const EMPTY_RECORD = Object.freeze({ status: "todo", attempts: 0, note: "", updatedAt: null, passedAt: null });
 const bySlug = new Map(PROBLEMS.map((problem, index) => [problem.slug, { problem, index }]));
 const categories = [...new Set(PROBLEMS.map((problem) => problem.category))];
 const problemsByCategory = new Map(categories.map((category) => [
@@ -638,57 +735,105 @@ const searchTextBySlug = new Map(PROBLEMS.map((problem) => [
 ]));
 const sanitizedContentBySlug = new Map();
 
-const elements = Object.fromEntries([
+const ELEMENT_IDS = [
   "storage-warning", "catalog-view", "study-view", "category-grid", "search-input",
   "difficulty-filter", "status-filter", "clear-filter-button", "solved-count",
   "attempted-count", "noted-count", "submission-count", "progress-number", "progress-orbit",
-  "continue-button", "random-button", "import-button", "export-button", "theme-button",
+  "continue-button", "random-button", "auto-expand-button", "import-button", "export-button", "theme-button",
   "markdown-file-input", "toast-stack", "back-button", "previous-button", "next-button",
   "mastered-button", "problem-toggle-button", "study-position", "study-title-mini", "problem-kicker", "problem-title",
   "official-content", "problem-pane", "code-editor", "notes-editor", "code-save-state",
   "notes-save-state", "font-down-button", "font-up-button", "font-size-label", "reset-code-button",
-  "cursor-position", "runtime-status", "run-button", "submit-button", "result-panel",
+  "cursor-position", "runtime-status", "custom-case-button", "run-button", "submit-button", "result-panel",
   "solution-note", "solution-complexity", "reference-code", "copy-solution-button",
   "export-modal", "export-code-checkbox", "export-cancel-button", "export-confirm-button",
-].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
+  "custom-case-modal", "custom-case-template", "custom-case-list", "custom-case-add-button",
+  "custom-case-cancel-button", "custom-case-save-button",
+];
+const elements = Object.fromEntries(ELEMENT_IDS.map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
+const missingElementIds = ELEMENT_IDS.filter((id) => !document.getElementById(id));
+if (missingElementIds.length) throw new Error(`页面缺少必要元素：${missingElementIds.join(", ")}`);
 
 let storageAvailable = true;
 let currentSlug = null;
 let saveTimer = null;
 let catalogRenderFrame = null;
+let customCaseDrafts = [];
+let evaluationInProgress = false;
 let state = loadState();
 
 function blankState() {
   return {
-    version: 1,
+    version: STATE_VERSION,
     records: {},
-    settings: { theme: "light", editorSize: 14, lastSlug: PROBLEMS[0].slug },
+    settings: { theme: "dark", editorSize: 14, lastSlug: PROBLEMS[0].slug, expandProblemByDefault: false },
+  };
+}
+
+function normalizeRecord(value) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = {
+    ...EMPTY_RECORD,
+    status: VALID_STATUSES.has(raw.status) ? raw.status : "todo",
+    attempts: Number.isInteger(raw.attempts) && raw.attempts >= 0 ? raw.attempts : 0,
+    note: typeof raw.note === "string" ? raw.note : "",
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
+    passedAt: typeof raw.passedAt === "string" ? raw.passedAt : null,
+  };
+  if (typeof raw.code === "string") record.code = raw.code;
+  if (Array.isArray(raw.customCases)) {
+    record.customCases = raw.customCases
+      .filter((item) => typeof item === "string" && item.length <= MAX_CUSTOM_CASE_LENGTH)
+      .slice(0, MAX_CUSTOM_CASES);
+  }
+  return record;
+}
+
+function normalizeSettings(value) {
+  const fallback = blankState().settings;
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const editorSize = raw.editorSize;
+  return {
+    theme: ["light", "dark"].includes(raw.theme) ? raw.theme : fallback.theme,
+    editorSize: Number.isFinite(editorSize) ? Math.max(12, Math.min(20, Math.round(editorSize))) : fallback.editorSize,
+    lastSlug: bySlug.has(raw.lastSlug) ? raw.lastSlug : fallback.lastSlug,
+    expandProblemByDefault: raw.expandProblemByDefault === true,
   };
 }
 
 function loadState() {
   const fallback = blankState();
+  let raw;
   try {
     const testKey = `${STORAGE_KEY}:test`;
     localStorage.setItem(testKey, "1");
     localStorage.removeItem(testKey);
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return {
-      version: 1,
-      records: parsed.records && typeof parsed.records === "object" ? parsed.records : {},
-      settings: { ...fallback.settings, ...(parsed.settings || {}) },
-    };
+    raw = localStorage.getItem(STORAGE_KEY);
   } catch (error) {
     storageAvailable = false;
     queueMicrotask(() => elements.storage_warning?.classList.add("visible"));
+    return fallback;
+  }
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("状态根节点必须是对象");
+    const rawRecords = parsed.records && typeof parsed.records === "object" && !Array.isArray(parsed.records) ? parsed.records : {};
+    const records = {};
+    for (const problem of PROBLEMS) {
+      if (Object.hasOwn(rawRecords, problem.slug)) records[problem.slug] = normalizeRecord(rawRecords[problem.slug]);
+    }
+    return { version: STATE_VERSION, records, settings: normalizeSettings(parsed.settings) };
+  } catch (error) {
+    console.warn("本地学习记录损坏，已使用默认状态：", error);
+    queueMicrotask(() => toast("本地学习记录格式损坏，本次已使用默认状态", "error"));
     return fallback;
   }
 }
 
 function saveState(immediate = false) {
   clearTimeout(saveTimer);
+  saveTimer = null;
   const persist = () => {
     if (!storageAvailable) return;
     try {
@@ -700,18 +845,109 @@ function saveState(immediate = false) {
     }
   };
   if (immediate) persist();
-  else saveTimer = setTimeout(persist, 350);
+  else saveTimer = setTimeout(() => { saveTimer = null; persist(); }, 350);
 }
 
 function recordFor(slug, create = true) {
-  if (!state.records[slug] && create) {
-    state.records[slug] = { status: "todo", attempts: 0, note: "", updatedAt: null };
+  if (!state.records[slug] && create) state.records[slug] = { ...EMPTY_RECORD };
+  return state.records[slug] || EMPTY_RECORD;
+}
+
+function customCasesFor(slug = currentSlug) {
+  const cases = slug ? recordFor(slug, false).customCases : null;
+  return Array.isArray(cases) ? cases.slice(0, MAX_CUSTOM_CASES) : [];
+}
+
+function customCaseTemplateFor(slug = currentSlug) {
+  const example = slug ? SOLUTIONS[slug]?.tests?.[0] : null;
+  return JSON.stringify(example ?? [], null, 2);
+}
+
+function parseCustomCase(source, solution) {
+  if (source.length > MAX_CUSTOM_CASE_LENGTH) throw new Error(`内容不能超过 ${MAX_CUSTOM_CASE_LENGTH} 个字符`);
+  const value = JSON.parse(source);
+  if (solution.kind !== "class") {
+    if (!Array.isArray(value)) throw new Error("函数题输入需要使用参数数组");
+    return value;
   }
-  return state.records[slug] || { status: "todo", attempts: 0, note: "", updatedAt: null };
+  if (!value || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.ops) || !Array.isArray(value.args)) throw new Error("设计题输入需要包含 ops 和 args 数组");
+  if (!value.ops.length || value.ops.length !== value.args.length) throw new Error("ops 和 args 必须非空且长度一致");
+  if (value.ops[0] !== solution.className || !value.args.every(Array.isArray)) throw new Error(`首个操作必须是 ${solution.className}，且每项参数都必须是数组`);
+  return value;
+}
+
+function showModal(modal, focusTarget) {
+  modal.classList.remove("hidden");
+  requestAnimationFrame(() => focusTarget()?.focus());
+}
+
+function hideModal(modal, returnFocus) {
+  modal.classList.add("hidden");
+  returnFocus?.focus();
+}
+
+function updateCustomCaseButton() {
+  const count = customCasesFor().length;
+  elements.custom_case_button.textContent = count ? `样例 +${count}` : "＋ 添加样例";
+  elements.custom_case_button.title = count ? `已添加 ${count} 个自定义运行样例` : "添加自定义运行样例";
+}
+
+function renderCustomCaseDrafts(focusIndex = -1) {
+  elements.custom_case_list.innerHTML = customCaseDrafts.length
+    ? customCaseDrafts.map((value, index) => `<article class="custom-case-editor">
+        <div class="custom-case-head"><span>自定义样例 ${index + 1}</span><button class="button small ghost custom-case-remove" type="button" data-remove-custom-case="${index}">删除</button></div>
+        <textarea class="custom-case-input" data-custom-case-index="${index}" maxlength="${MAX_CUSTOM_CASE_LENGTH}" spellcheck="false" aria-label="自定义样例 ${index + 1} 的 JSON 输入">${escapeHtml(value)}</textarea>
+      </article>`).join("")
+    : `<div class="empty-state">还没有自定义样例，点击“再加一个”开始。</div>`;
+  elements.custom_case_add_button.disabled = customCaseDrafts.length >= MAX_CUSTOM_CASES;
+  elements.custom_case_add_button.title = elements.custom_case_add_button.disabled ? `最多添加 ${MAX_CUSTOM_CASES} 个自定义样例` : "添加一个自定义样例";
+  if (focusIndex >= 0) requestAnimationFrame(() => elements.custom_case_list.querySelector(`[data-custom-case-index="${focusIndex}"]`)?.focus());
+}
+
+function addCustomCaseDraft() {
+  if (customCaseDrafts.length >= MAX_CUSTOM_CASES) return toast(`最多添加 ${MAX_CUSTOM_CASES} 个自定义样例`, "error");
+  customCaseDrafts.push(customCaseTemplateFor());
+  renderCustomCaseDrafts(customCaseDrafts.length - 1);
+}
+
+function openCustomCaseModal() {
+  if (!currentSlug) return;
+  customCaseDrafts = [...customCasesFor()];
+  elements.custom_case_template.textContent = customCaseTemplateFor();
+  if (!customCaseDrafts.length) addCustomCaseDraft();
+  else renderCustomCaseDrafts();
+  showModal(elements.custom_case_modal, () => elements.custom_case_list.querySelector("textarea"));
+}
+
+function closeCustomCaseModal() {
+  customCaseDrafts = [];
+  hideModal(elements.custom_case_modal, elements.custom_case_button);
+}
+
+function saveCustomCases() {
+  const normalized = [];
+  for (const [index, source] of customCaseDrafts.entries()) {
+    try {
+      const value = parseCustomCase(source, SOLUTIONS[currentSlug]);
+      normalized.push(JSON.stringify(value, null, 2));
+    } catch (error) {
+      renderCustomCaseDrafts(index);
+      toast(`自定义样例 ${index + 1} 格式错误：${error.message}`, "error");
+      return;
+    }
+  }
+  const record = recordFor(currentSlug);
+  record.customCases = normalized;
+  record.updatedAt = new Date().toISOString();
+  saveState(true);
+  updateCustomCaseButton();
+  closeCustomCaseModal();
+  toast(normalized.length ? `已保存 ${normalized.length} 个自定义样例` : "已清空自定义样例");
 }
 
 function statusFor(slug) {
-  return recordFor(slug, false).status || "todo";
+  const status = recordFor(slug, false).status;
+  return VALID_STATUSES.has(status) ? status : "todo";
 }
 
 function escapeHtml(value) {
@@ -732,7 +968,18 @@ function applyTheme(theme) {
   const resolved = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = resolved;
   state.settings.theme = resolved;
-  elements.theme_button.setAttribute("aria-label", resolved === "dark" ? "切换浅色模式" : "切换深色模式");
+  const label = resolved === "dark" ? "切换浅色模式" : "切换深色模式";
+  elements.theme_button.setAttribute("aria-label", label);
+  elements.theme_button.title = label;
+}
+
+function applyProblemExpansionPreference(enabled, persist = true) {
+  const expanded = enabled === true;
+  state.settings.expandProblemByDefault = expanded;
+  elements.auto_expand_button.setAttribute("aria-checked", String(expanded));
+  elements.auto_expand_button.title = expanded ? "进入题目时默认展开题面" : "进入题目时默认收起题面";
+  if (currentSlug) setProblemPaneCollapsed(!expanded);
+  if (persist) saveState();
 }
 
 function statistics() {
@@ -814,7 +1061,7 @@ function sanitizeOfficialContent(html) {
   template.content.querySelectorAll("*").forEach((node) => {
     [...node.attributes].forEach((attribute) => {
       if (/^on/i.test(attribute.name)) node.removeAttribute(attribute.name);
-      if (["src", "href"].includes(attribute.name) && /^javascript:/i.test(attribute.value)) node.removeAttribute(attribute.name);
+      if (["src", "href"].includes(attribute.name) && /^\s*javascript:/i.test(attribute.value)) node.removeAttribute(attribute.name);
     });
   });
   template.content.querySelectorAll("a").forEach((link) => {
@@ -835,6 +1082,7 @@ function updateMasteredButton() {
   const solved = statusFor(currentSlug) === "solved";
   elements.mastered_button.textContent = solved ? "✓ 已掌握" : "标记已掌握";
   elements.mastered_button.classList.toggle("success", solved);
+  elements.mastered_button.setAttribute("aria-pressed", String(solved));
 }
 
 function setProblemPaneCollapsed(collapsed) {
@@ -857,7 +1105,7 @@ function openProblem(slug, updateHash = true) {
 
   elements.catalog_view.classList.remove("active");
   elements.study_view.classList.add("active");
-  setProblemPaneCollapsed(true);
+  setProblemPaneCollapsed(!state.settings.expandProblemByDefault);
   elements.study_position.textContent = `${index + 1} / ${PROBLEMS.length}`;
   elements.study_title_mini.textContent = `${problem.frontendId}. ${problem.title}`;
   elements.problem_title.textContent = `${problem.frontendId}. ${problem.title}`;
@@ -873,11 +1121,12 @@ function openProblem(slug, updateHash = true) {
   elements.reference_code.textContent = solution.code;
   elements.result_panel.className = "result-panel";
   elements.result_panel.innerHTML = "";
+  updateCustomCaseButton();
   elements.problem_pane.scrollTop = 0;
   updateMasteredButton();
   updateCursorPosition();
   switchWorkspaceTab("code");
-  document.title = `${problem.frontendId}. ${problem.title} · Hot 100 离线训练场`;
+  document.title = `${problem.frontendId}. ${problem.title} · Python 离线训练场`;
   if (updateHash && location.hash !== `#problem=${encodeURIComponent(slug)}`) {
     location.hash = `problem=${encodeURIComponent(slug)}`;
   }
@@ -887,7 +1136,7 @@ function showCatalog(updateHash = true) {
   currentSlug = null;
   elements.study_view.classList.remove("active");
   elements.catalog_view.classList.add("active");
-  document.title = "Hot 100 · Python 离线训练场";
+  document.title = "Python 离线训练场";
   renderCatalog();
   if (updateHash && location.hash) history.pushState(null, "", location.href.split("#")[0]);
 }
@@ -910,13 +1159,25 @@ function switchWorkspaceTab(tab) {
   document.querySelectorAll(".workspace-panel").forEach((panel) => panel.classList.toggle("active", panel.id === `${tab}-panel`));
 }
 
-function touchRecord(type) {
-  if (!currentSlug) return;
+function updateCurrentRecord(values, immediate = false) {
+  if (!currentSlug) return immediate ? saveState(true) : undefined;
   const record = recordFor(currentSlug);
-  if (type === "code") record.code = elements.code_editor.value;
-  if (type === "note") record.note = elements.notes_editor.value;
-  record.updatedAt = new Date().toISOString();
-  saveState();
+  let changed = false;
+  for (const [key, value] of Object.entries(values)) {
+    if (record[key] === value) continue;
+    record[key] = value;
+    changed = true;
+  }
+  if (changed) record.updatedAt = new Date().toISOString();
+  saveState(immediate);
+}
+
+function touchRecord(type) {
+  updateCurrentRecord({ [type]: type === "code" ? elements.code_editor.value : elements.notes_editor.value });
+}
+
+function syncCurrentEditors(immediate = false) {
+  updateCurrentRecord({ code: elements.code_editor.value, note: elements.notes_editor.value }, immediate);
 }
 
 function showSavePulse(element) {
@@ -931,32 +1192,63 @@ function updateCursorPosition() {
 }
 
 function changeEditorSize(delta, persist = true) {
-  const size = Math.max(12, Math.min(20, Number(state.settings.editorSize || 14) + delta));
+  const currentSize = Number(state.settings.editorSize);
+  const size = Math.max(12, Math.min(20, (Number.isFinite(currentSize) ? currentSize : 14) + delta));
   state.settings.editorSize = size;
   document.documentElement.style.setProperty("--editor-size", `${size}px`);
   elements.font_size_label.textContent = size;
   if (persist) saveState();
 }
 
-function markdownFence(content, language = "") {
-  const runs = [...String(content).matchAll(/`+/g)].map((match) => match[0].length);
-  const fence = "`".repeat(Math.max(3, ...(runs.map((length) => length + 1))));
-  return `${fence}${language}\n${content}\n${fence}`;
+function base64FromBytes(bytes) {
+  let binary = "";
+  for (let start = 0; start < bytes.length; start += 0x8000) binary += String.fromCharCode(...bytes.subarray(start, start + 0x8000));
+  return btoa(binary);
+}
+
+function bytesFromBase64(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function encodeRecordText(value) {
+  return base64FromBytes(new TextEncoder().encode(String(value ?? "")));
+}
+
+function decodeRecordText(value) {
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytesFromBase64(String(value || "")));
+}
+
+function markdownTableCell(value) {
+  return escapeHtml(value)
+    .replaceAll("|", "&#124;")
+    .replace(/\r?\n/g, "<br>");
+}
+
+function markdownCodeCell(value) {
+  const content = String(value ?? "").replace(/\r\n/g, "\n").split("\n")
+    .map((line) => markdownTableCell(line.replaceAll("\t", "    ")).replaceAll(" ", "&nbsp;"))
+    .join("<br>");
+  return `<code>${content}</code>`;
 }
 
 function exportMarkdown(includeCode = false) {
-  if (currentSlug) touchRecord("code");
-  if (currentSlug) touchRecord("note");
+  syncCurrentEditors(true);
   const stats = statistics();
   const lines = [
-    "# LeetCode Hot 100 学习清单", "",
-    `> 由 Hot 100 Python 离线训练场导出于 ${new Date().toLocaleString("zh-CN")}。`, "",
-    `<!-- HOT100_EXPORT_VERSION:${EXPORT_VERSION} -->`,
-    `<!-- HOT100_EXPORT_OPTIONS ${JSON.stringify({ includeCode })} -->`, "",
+    "# LeetCode 学习记录", "",
+    `> 由 Python 离线训练场导出于 ${new Date().toLocaleString("zh-CN")}。`, "",
+    `<!-- LEETCODE_EXPORT_VERSION:${EXPORT_VERSION} -->`,
+    `<!-- LEETCODE_EXPORT_OPTIONS ${JSON.stringify({ includeCode })} -->`, "",
     `- 进度：**${stats.solved} / ${PROBLEMS.length}**`,
     `- 进行中：${stats.attempted}`, `- 笔记：${stats.noted}`, `- 提交：${stats.submissions} 次`, "",
-    "## 题目清单", "",
+    "## 题目、笔记与个人代码", "",
   ];
+  const headers = includeCode ? ["题目名", "笔记", "个人代码"] : ["题目名", "笔记"];
+  lines.push(`| ${headers.join(" | ")} |`, `| ${headers.map(() => "---").join(" | ")} |`);
+  const metadataRecords = [];
   for (const problem of PROBLEMS) {
     const record = recordFor(problem.slug, false);
     const metadata = {
@@ -965,155 +1257,90 @@ function exportMarkdown(includeCode = false) {
       attempts: Number(record.attempts || 0),
       updatedAt: record.updatedAt || null,
       passedAt: record.passedAt || null,
-      hasNote: Boolean((record.note || "").trim()),
-      hasCode: record.code != null,
+      noteBase64: encodeRecordText(record.note || ""),
+      codeBase64: includeCode && record.code != null ? encodeRecordText(record.code) : null,
     };
-    const extras = [];
-    if (metadata.status === "attempted") extras.push("进行中");
-    if (metadata.attempts) extras.push(`提交 ${metadata.attempts} 次`);
-    if (metadata.hasNote) extras.push("有笔记");
-    lines.push(`<!-- HOT100_RECORD ${JSON.stringify(metadata)} -->`);
-    lines.push(`- [${metadata.status === "solved" ? "x" : " "}] **${problem.frontendId}. ${problem.title}** · ${problem.category} · ${DIFFICULTY[problem.difficulty].label}${extras.length ? ` · ${extras.join(" · ")}` : ""}`);
+    metadataRecords.push(metadata);
+    const title = `[${metadata.status === "solved" ? "x" : " "}] **${problem.frontendId}. ${markdownTableCell(problem.title)}**`;
+    const note = (record.note || "").trim() ? markdownTableCell(record.note) : "—";
+    const cells = [title, note];
+    if (includeCode) cells.push(record.code != null ? markdownCodeCell(record.code) : "—");
+    lines.push(`| ${cells.join(" | ")} |`);
   }
-
-  const notedProblems = PROBLEMS.filter((problem) => (recordFor(problem.slug, false).note || "").trim());
-  if (notedProblems.length) {
-    lines.push("", "## 个人笔记", "");
-    for (const problem of notedProblems) {
-      const note = recordFor(problem.slug, false).note;
-      lines.push(`### ${problem.frontendId}. ${problem.title}`, "", `<!-- HOT100_NOTE_START ${problem.slug} -->`, note, `<!-- HOT100_NOTE_END ${problem.slug} -->`, "");
-    }
-  }
-
-  const codedProblems = includeCode ? PROBLEMS.filter((problem) => recordFor(problem.slug, false).code != null) : [];
-  if (includeCode) {
-    lines.push("", "## 个人代码", "");
-    if (!codedProblems.length) lines.push("> 还没有保存过个人代码。", "");
-    for (const problem of codedProblems) {
-      const code = recordFor(problem.slug, false).code;
-      lines.push(`### ${problem.frontendId}. ${problem.title}`, "", `<!-- HOT100_CODE_START ${problem.slug} -->`, markdownFence(code, "python"), `<!-- HOT100_CODE_END ${problem.slug} -->`, "");
-    }
-  }
+  lines.push("", "<!-- 以下数据用于重新导入，不会显示在渲染后的表格中。 -->");
+  for (const metadata of metadataRecords) lines.push(`<!-- LEETCODE_RECORD ${JSON.stringify(metadata)} -->`);
   const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   anchor.href = url;
-  anchor.download = `leetcode-hot100-progress-${stamp}.md`;
+  anchor.download = `leetcode-progress-${stamp}.md`;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  toast(includeCode ? "清单、笔记和个人代码已导出" : "简洁学习清单已导出");
+  toast(includeCode ? "题目、笔记和个人代码表格已导出" : "题目与笔记表格已导出");
 }
 
 function openExportModal() {
   elements.export_code_checkbox.checked = false;
-  elements.export_modal.classList.remove("hidden");
-  setTimeout(() => elements.export_code_checkbox.focus(), 0);
+  showModal(elements.export_modal, () => elements.export_code_checkbox);
 }
 
 function closeExportModal() {
-  elements.export_modal.classList.add("hidden");
-  elements.export_button.focus();
+  hideModal(elements.export_modal, elements.export_button);
 }
 
-function between(text, start, end) {
-  const startIndex = text.indexOf(start);
-  if (startIndex < 0) return null;
-  const contentStart = startIndex + start.length;
-  const endIndex = text.indexOf(end, contentStart);
-  return endIndex < 0 ? null : text.slice(contentStart, endIndex).replace(/^\s*\n/, "").replace(/\n\s*$/, "");
-}
-
-function stripCodeFence(text) {
-  if (text == null) return null;
-  const lines = text.split("\n");
-  if (/^`{3,}[^\n]*$/i.test(lines[0] || "")) lines.shift();
-  if (/^`{3,}\s*$/.test(lines.at(-1) || "")) lines.pop();
-  return lines.join("\n");
-}
-
-function finalizeImport(imported) {
-  if (!imported.size) throw new Error("未找到可识别的 Hot 100 学习记录");
+function finalizeImport(importedRecords, skippedCount) {
+  if (!importedRecords.size) throw new Error("未找到可识别的学习记录");
+  for (const [slug, record] of importedRecords) state.records[slug] = record;
   saveState(true);
   renderCatalog();
-  if (currentSlug && imported.has(currentSlug)) openProblem(currentSlug, false);
-  return imported.size;
+  if (currentSlug && importedRecords.has(currentSlug)) openProblem(currentSlug, false);
+  return { importedCount: importedRecords.size, skippedCount };
 }
 
-function importMarkdownV2(text) {
-  const imported = new Set();
-  const optionsMatch = text.match(/<!-- HOT100_EXPORT_OPTIONS (\{[^\n]+\}) -->/);
-  let includeCode = false;
-  try { includeCode = Boolean(JSON.parse(optionsMatch?.[1] || "{}").includeCode); } catch (error) { /* use default */ }
+function importMarkdown(text) {
+  const versionMatch = text.match(/<!-- LEETCODE_EXPORT_VERSION:(\d+) -->/);
+  if (!versionMatch) throw new Error("缺少导出版本信息");
+  if (Number(versionMatch[1]) !== EXPORT_VERSION) throw new Error(`不支持的导出版本：${versionMatch[1]}`);
+  const optionsMatch = text.match(/<!-- LEETCODE_EXPORT_OPTIONS (\{[^\n]+\}) -->/);
+  if (!optionsMatch) throw new Error("缺少导出选项信息");
+  let includeCode;
+  try {
+    const options = JSON.parse(optionsMatch[1]);
+    if (typeof options.includeCode !== "boolean") throw new Error("includeCode 必须是布尔值");
+    includeCode = options.includeCode;
+  } catch (error) {
+    throw new Error(`导出选项无效：${error.message}`);
+  }
 
-  const recordPattern = /<!-- HOT100_RECORD (\{[^\n]+\}) -->/g;
+  const importedRecords = new Map();
+  let skippedCount = 0;
+  const recordPattern = /<!-- LEETCODE_RECORD (\{[^\n]+\}) -->/g;
   let match;
   while ((match = recordPattern.exec(text))) {
     try {
       const metadata = JSON.parse(match[1]);
-      if (!bySlug.has(metadata.slug)) continue;
-      const record = {
+      if (!bySlug.has(metadata.slug) || typeof metadata.noteBase64 !== "string") throw new Error("题目标识或笔记数据无效");
+      const record = normalizeRecord({
         ...recordFor(metadata.slug, false),
-        status: ["todo", "attempted", "solved"].includes(metadata.status) ? metadata.status : "todo",
-        attempts: Math.max(0, Number(metadata.attempts || 0)),
+        status: VALID_STATUSES.has(metadata.status) ? metadata.status : "todo",
+        attempts: metadata.attempts,
         updatedAt: metadata.updatedAt || new Date().toISOString(),
         passedAt: metadata.passedAt || null,
-      };
-      if (!metadata.hasNote) record.note = "";
-      if (includeCode && !metadata.hasCode) delete record.code;
-      state.records[metadata.slug] = record;
-      imported.add(metadata.slug);
+        note: decodeRecordText(metadata.noteBase64),
+      });
+      if (includeCode) {
+        if (metadata.codeBase64 == null) delete record.code;
+        else if (typeof metadata.codeBase64 === "string") record.code = decodeRecordText(metadata.codeBase64);
+        else throw new Error("个人代码数据无效");
+      }
+      importedRecords.set(metadata.slug, record);
     } catch (error) {
-      // Skip malformed records while preserving valid ones.
+      skippedCount += 1;
     }
   }
 
-  const notePattern = /<!-- HOT100_NOTE_START ([a-z0-9-]+) -->([\s\S]*?)<!-- HOT100_NOTE_END \1 -->/g;
-  while ((match = notePattern.exec(text))) {
-    if (!bySlug.has(match[1])) continue;
-    recordFor(match[1]).note = match[2].replace(/^\r?\n/, "").replace(/\r?\n$/, "");
-    imported.add(match[1]);
-  }
-  const codePattern = /<!-- HOT100_CODE_START ([a-z0-9-]+) -->([\s\S]*?)<!-- HOT100_CODE_END \1 -->/g;
-  while ((match = codePattern.exec(text))) {
-    if (!bySlug.has(match[1])) continue;
-    const block = match[2].replace(/^\r?\n/, "").replace(/\r?\n$/, "");
-    recordFor(match[1]).code = stripCodeFence(block);
-    imported.add(match[1]);
-  }
-  return finalizeImport(imported);
-}
-
-function importMarkdownV1(text) {
-  const pattern = /<!-- HOT100_RECORD_START (\{[^\n]+\}) -->([\s\S]*?)<!-- HOT100_RECORD_END -->/g;
-  const imported = new Set();
-  let match;
-  while ((match = pattern.exec(text))) {
-    try {
-      const metadata = JSON.parse(match[1]);
-      if (!bySlug.has(metadata.slug)) continue;
-      const section = match[2];
-      const code = stripCodeFence(between(section, "<!-- HOT100_CODE_START -->", "<!-- HOT100_CODE_END -->"));
-      const note = between(section, "<!-- HOT100_NOTE_START -->", "<!-- HOT100_NOTE_END -->");
-      state.records[metadata.slug] = {
-        ...recordFor(metadata.slug, false),
-        status: ["todo", "attempted", "solved"].includes(metadata.status) ? metadata.status : "todo",
-        attempts: Math.max(0, Number(metadata.attempts || 0)),
-        updatedAt: metadata.updatedAt || new Date().toISOString(),
-        passedAt: metadata.passedAt || null,
-        ...(code != null ? { code } : {}),
-        ...(note != null ? { note } : {}),
-      };
-      imported.add(metadata.slug);
-    } catch (error) {
-      // Skip malformed records while preserving valid ones.
-    }
-  }
-  return finalizeImport(imported);
-}
-
-function importMarkdown(text) {
-  return text.includes("HOT100_EXPORT_VERSION:2") ? importMarkdownV2(text) : importMarkdownV1(text);
+  return finalizeImport(importedRecords, skippedCount);
 }
 
 async function copyText(text) {
@@ -1132,17 +1359,6 @@ async function copyText(text) {
     }
     if (!copied) throw new Error("浏览器未允许复制到剪贴板");
   }
-}
-
-function bytesFromBase64(value) {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  const chunk = 1 << 20;
-  for (let start = 0; start < binary.length; start += chunk) {
-    const end = Math.min(start + chunk, binary.length);
-    for (let index = start; index < end; index += 1) bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
 }
 
 const JUDGE_WORKER_SOURCE = `
@@ -1199,9 +1415,7 @@ self.onmessage = async (event) => {
 let decodedRuntime = null;
 let runtimeUrls = null;
 let judgeWorker = null;
-let mainThreadPyodide = null;
 let judgeReady = null;
-let judgeBackend = null;
 let pendingRun = null;
 let runSequence = 0;
 
@@ -1244,7 +1458,6 @@ function runtimeObjectUrls() {
 function destroyJudge(reason) {
   if (judgeWorker) judgeWorker.terminate();
   judgeWorker = null;
-  judgeBackend = null;
   judgeReady = null;
   if (pendingRun) {
     pendingRun.reject(new Error(reason || "评测进程已终止"));
@@ -1255,10 +1468,17 @@ function destroyJudge(reason) {
 function startWorkerJudge() {
   return new Promise((resolve, reject) => {
     let worker = null;
+    let workerUrl = null;
     let initialized = false;
     let initTimer = null;
+    const revokeWorkerUrl = () => {
+      if (!workerUrl) return;
+      URL.revokeObjectURL(workerUrl);
+      workerUrl = null;
+    };
     const fail = (error) => {
       if (initTimer) clearTimeout(initTimer);
+      revokeWorkerUrl();
       if (worker) worker.terminate();
       if (judgeWorker === worker) judgeWorker = null;
       if (!initialized) {
@@ -1266,16 +1486,14 @@ function startWorkerJudge() {
         reject(error);
       } else {
         if (pendingRun) { pendingRun.reject(error); pendingRun = null; }
-        judgeBackend = null;
         judgeReady = null;
         setRuntimeStatus("", "Python 评测进程已停止，将在下次运行时重启");
       }
     };
     try {
-      const workerUrl = URL.createObjectURL(new Blob([JUDGE_WORKER_SOURCE], { type: "text/javascript" }));
-      worker = new Worker(workerUrl, { name: "hot100-python-judge" });
+      workerUrl = URL.createObjectURL(new Blob([JUDGE_WORKER_SOURCE], { type: "text/javascript" }));
+      worker = new Worker(workerUrl, { name: "leetcode-python-judge" });
       judgeWorker = worker;
-      setTimeout(() => URL.revokeObjectURL(workerUrl), 1000);
       initTimer = setTimeout(() => fail(new Error("Python Worker 启动超时")), 20000);
       worker.onmessage = (event) => {
         const message = event.data;
@@ -1283,7 +1501,7 @@ function startWorkerJudge() {
           if (initialized) return;
           initialized = true;
           clearTimeout(initTimer);
-          judgeBackend = "worker";
+          revokeWorkerUrl();
           setRuntimeStatus("ready", "离线 Python 已就绪");
           resolve({ kind: "worker", worker });
         } else if (message.type === "init-error") {
@@ -1320,8 +1538,8 @@ async function startMainThreadJudge(workerError) {
   if (!loaderSource.includes("return { loadPyodide: dt") || !asmModuleSource.includes("return _createPyodideModule")) {
     throw new Error("无法解析内嵌 Python 模块");
   }
-  const loader = new Function(`${loaderSource}\n//# sourceURL=hot100-pyodide-loader.js`)();
-  const createPyodideModule = new Function(`${asmModuleSource}\n//# sourceURL=hot100-pyodide-asm.js`)();
+  const loader = new Function(`${loaderSource}\n//# sourceURL=leetcode-pyodide-loader.js`)();
+  const createPyodideModule = new Function(`${asmModuleSource}\n//# sourceURL=leetcode-pyodide-asm.js`)();
   const originalFetch = globalThis.fetch;
   const nativeFetch = originalFetch.bind(globalThis);
   globalThis.fetch = (input, options) => {
@@ -1336,16 +1554,15 @@ async function startMainThreadJudge(workerError) {
   };
   try {
     setRuntimeStatus("loading", "兼容模式：正在编译内嵌 Python…");
-    mainThreadPyodide = await loader.loadPyodide({
+    const pyodide = await loader.loadPyodide({
       indexURL: "https://offline.local/",
       stdLibURL: "https://offline.local/python_stdlib.zip",
       lockFileContents: runtime.lock,
       packageBaseUrl: "https://offline.local/",
       createPyodideModule,
     });
-    judgeBackend = "main";
     setRuntimeStatus("ready", "离线 Python 已就绪（兼容模式）");
-    return { kind: "main", pyodide: mainThreadPyodide };
+    return { kind: "main", pyodide };
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1358,7 +1575,6 @@ function ensureJudge() {
     .catch((workerError) => startMainThreadJudge(workerError))
     .catch((error) => {
       judgeReady = null;
-      judgeBackend = null;
       setRuntimeStatus("", "Python 运行时启动失败");
       throw error;
     });
@@ -1407,17 +1623,20 @@ function releaseRuntimeUrls() {
 
 function renderResults(result, mode) {
   elements.result_panel.className = "result-panel open";
-  if (result.fatal) {
-    elements.result_panel.innerHTML = `<div class="result-summary"><span class="result-title fail">评测器错误</span></div><div class="case-list"><pre class="case-value error">${escapeHtml(result.fatal)}\n${escapeHtml(result.detail || "")}</pre></div>`;
+  if (result?.fatal || !Array.isArray(result?.results)) {
+    const message = result?.fatal || "评测器返回了无效结果";
+    elements.result_panel.innerHTML = `<div class="result-summary"><span class="result-title fail">评测器错误</span><button id="close-results" class="button small ghost" type="button">收起</button></div><div class="case-list"><pre class="case-value error">${escapeHtml(message)}\n${escapeHtml(result?.detail || "")}</pre></div>`;
     return;
   }
   const passedCount = result.results.filter((item) => item.passed).length;
-  const title = result.passed ? (mode === "submit" ? "全部通过" : "样例通过") : `${passedCount} / ${result.results.length} 个用例通过`;
-  const cases = result.results.map((item, index) => {
+  const unit = mode === "submit" ? "用例" : "样例";
+  const title = result.passed ? (mode === "submit" ? "全部通过" : "运行通过") : `${passedCount} / ${result.results.length} 个${unit}通过`;
+  const cases = result.results.map((item) => {
     const expanded = !item.passed || result.results.length <= 2 ? " expanded" : "";
-    const label = item.visible ? `样例 ${item.index + 1}` : `隐藏用例 ${item.index + 1}`;
+    const label = escapeHtml(item.label || (item.visible ? `样例 ${item.index + 1}` : `隐藏样例 ${item.index + 1}`));
+    const duration = Number.isFinite(Number(item.durationMs)) ? `${Number(item.durationMs)} ms` : "—";
     return `<article class="case-item${expanded}">
-      <div class="case-head" role="button" tabindex="0"><div class="case-name"><span class="case-badge ${item.passed ? "pass" : "fail"}">${item.passed ? "✓" : "×"}</span>${label}</div><span class="case-time">${item.durationMs} ms</span></div>
+      <div class="case-head" role="button" tabindex="0" aria-expanded="${Boolean(expanded)}"><div class="case-name"><span class="case-badge ${item.passed ? "pass" : "fail"}">${item.passed ? "✓" : "×"}</span>${label}</div><span class="case-time">${duration}</span></div>
       <div class="case-detail">
         <div class="case-field"><span class="case-label">输入</span><pre class="case-value">${escapeHtml(item.input)}</pre></div>
         <div class="case-field"><span class="case-label">期望</span><pre class="case-value">${escapeHtml(item.expected)}</pre></div>
@@ -1430,8 +1649,17 @@ function renderResults(result, mode) {
   elements.result_panel.innerHTML = `<div class="result-summary"><span class="result-title ${result.passed ? "pass" : "fail"}">${title}</span><button id="close-results" class="button small ghost" type="button">收起</button></div><div class="case-list">${cases}</div>`;
 }
 
+function setEvaluationBusy(busy, mode) {
+  evaluationInProgress = busy;
+  elements.result_panel.setAttribute("aria-busy", String(busy));
+  for (const button of [elements.custom_case_button, elements.run_button, elements.submit_button]) button.disabled = busy;
+  elements.run_button.textContent = busy && mode === "sample" ? "运行中…" : "运行";
+  elements.submit_button.textContent = busy && mode === "submit" ? "提交中…" : "提交";
+}
+
 async function runEvaluation(mode) {
   if (!currentSlug) return;
+  if (evaluationInProgress) return toast("评测正在运行，请稍候", "error");
   const slug = currentSlug;
   const solution = SOLUTIONS[slug];
   const code = elements.code_editor.value;
@@ -1439,16 +1667,23 @@ async function runEvaluation(mode) {
   touchRecord("code");
   const tests = mode === "sample" ? solution.tests.slice(0, Math.min(2, solution.tests.length)) : solution.tests;
   const { code: referenceCode, tests: _tests, note: _note, complexity: _complexity, ...meta } = solution;
+  const cases = tests.map((value, index) => ({ index, visible: index < 2, value }));
+  if (mode === "sample") {
+    for (const [index, source] of customCasesFor(slug).entries()) {
+      try {
+        cases.push({ index: cases.length, visible: true, label: `自定义样例 ${index + 1}`, value: parseCustomCase(source, solution) });
+      } catch (error) {
+        return toast(`自定义样例 ${index + 1} 无效：${error.message}`, "error");
+      }
+    }
+  }
   const payload = {
     userCode: code,
     referenceCode,
     meta,
-    cases: tests.map((value, index) => ({ index, visible: index < 2, value })),
+    cases,
   };
-  elements.run_button.disabled = true;
-  elements.submit_button.disabled = true;
-  elements.run_button.textContent = mode === "sample" ? "运行中…" : "运行样例";
-  elements.submit_button.textContent = mode === "submit" ? "评测中…" : "提交评估";
+  setEvaluationBusy(true, mode);
   try {
     const result = await evaluate(payload, mode === "submit" ? 9000 : 6000);
     const record = recordFor(slug);
@@ -1472,10 +1707,7 @@ async function runEvaluation(mode) {
       toast(error.message || "评测失败", "error");
     }
   } finally {
-    elements.run_button.disabled = false;
-    elements.submit_button.disabled = false;
-    elements.run_button.textContent = "运行样例";
-    elements.submit_button.textContent = "提交评估";
+    setEvaluationBusy(false);
   }
 }
 
@@ -1497,6 +1729,9 @@ elements.random_button.addEventListener("click", () => {
   const remaining = PROBLEMS.filter((problem) => statusFor(problem.slug) !== "solved");
   const pool = remaining.length ? remaining : PROBLEMS;
   openProblem(pool[Math.floor(Math.random() * pool.length)].slug);
+});
+elements.auto_expand_button.addEventListener("click", () => {
+  applyProblemExpansionPreference(!state.settings.expandProblemByDefault);
 });
 elements.back_button.addEventListener("click", () => showCatalog());
 elements.problem_toggle_button.addEventListener("click", () => {
@@ -1542,15 +1777,37 @@ elements.copy_solution_button.addEventListener("click", async () => {
 });
 elements.run_button.addEventListener("click", () => runEvaluation("sample"));
 elements.submit_button.addEventListener("click", () => runEvaluation("submit"));
+elements.custom_case_button.addEventListener("click", openCustomCaseModal);
+elements.custom_case_add_button.addEventListener("click", addCustomCaseDraft);
+elements.custom_case_cancel_button.addEventListener("click", closeCustomCaseModal);
+elements.custom_case_save_button.addEventListener("click", saveCustomCases);
+elements.custom_case_list.addEventListener("input", (event) => {
+  const index = Number(event.target.dataset.customCaseIndex);
+  if (event.target.matches(".custom-case-input") && Number.isInteger(index)) customCaseDrafts[index] = event.target.value;
+});
+elements.custom_case_list.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-custom-case]");
+  if (!button) return;
+  const index = Number(button.dataset.removeCustomCase);
+  customCaseDrafts.splice(index, 1);
+  renderCustomCaseDrafts();
+});
+elements.custom_case_modal.addEventListener("click", (event) => { if (event.target === elements.custom_case_modal) closeCustomCaseModal(); });
+function toggleResultCase(head) {
+  const item = head?.closest(".case-item");
+  if (!item) return;
+  const expanded = item.classList.toggle("expanded");
+  head.setAttribute("aria-expanded", String(expanded));
+}
 elements.result_panel.addEventListener("click", (event) => {
   if (event.target.closest("#close-results")) elements.result_panel.classList.remove("open");
-  const head = event.target.closest(".case-head"); if (head) head.parentElement.classList.toggle("expanded");
+  toggleResultCase(event.target.closest(".case-head"));
 });
 elements.result_panel.addEventListener("keydown", (event) => {
   const head = event.target.closest(".case-head");
   if (head && ["Enter", " "].includes(event.key)) {
     event.preventDefault();
-    head.parentElement.classList.toggle("expanded");
+    toggleResultCase(head);
   }
 });
 elements.export_button.addEventListener("click", openExportModal);
@@ -1567,23 +1824,27 @@ elements.markdown_file_input.addEventListener("change", async () => {
   elements.markdown_file_input.value = "";
   if (!file) return;
   try {
+    if (file.size > MAX_IMPORT_FILE_SIZE) throw new Error("导入文件不能超过 50 MiB");
     const text = await file.text();
     if (!confirm("导入会覆盖 Markdown 中包含题目的本地代码、笔记和进度，是否继续？")) return;
-    const count = importMarkdown(text); toast(`已导入 ${count} 道题的学习记录`);
+    const { importedCount, skippedCount } = importMarkdown(text);
+    toast(skippedCount ? `已导入 ${importedCount} 道题，跳过 ${skippedCount} 条无效记录` : `已导入 ${importedCount} 道题的学习记录`);
   } catch (error) { toast(error.message || "Markdown 导入失败", "error"); }
 });
 elements.theme_button.addEventListener("click", () => { applyTheme(state.settings.theme === "dark" ? "light" : "dark"); saveState(); });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !elements.export_modal.classList.contains("hidden")) closeExportModal();
+  if (event.key !== "Escape") return;
+  if (!elements.custom_case_modal.classList.contains("hidden")) closeCustomCaseModal();
+  else if (!elements.export_modal.classList.contains("hidden")) closeExportModal();
 });
 window.addEventListener("hashchange", route);
 window.addEventListener("beforeunload", () => {
-  if (currentSlug) { touchRecord("code"); touchRecord("note"); }
-  saveState(true);
+  syncCurrentEditors(true);
   releaseRuntimeUrls();
 });
 
 applyTheme(state.settings.theme);
+applyProblemExpansionPreference(state.settings.expandProblemByDefault, false);
 changeEditorSize(0, false);
 renderCatalog();
 route();
