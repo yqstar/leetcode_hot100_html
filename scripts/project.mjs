@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import vm from "node:vm";
@@ -89,7 +89,11 @@ async function writeArtifact(relativePath, buffer) {
     if (error.code !== "ENOENT") throw error;
   }
   const changed = !previous?.equals(buffer);
-  if (changed) await writeFile(outputPath, buffer);
+  if (changed) {
+    const temporaryPath = new URL(`${relativePath}.tmp`, root);
+    await writeFile(temporaryPath, buffer);
+    await rename(temporaryPath, outputPath);
+  }
   return changed;
 }
 
@@ -285,14 +289,56 @@ function verifyStateHelpers(html, check) {
   check(JSON.stringify(recordContext.normalized.customCases) === JSON.stringify(["valid", "ok"]), "自定义样例会按类型、大小和数量清洗");
 
   const settingsContext = {
-    blankState: () => ({ settings: { theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: false } }),
+    STATE_VERSION: 2,
+    blankState: () => ({ settings: { theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true } }),
     bySlug: new Map([["first", true]]),
   };
   const settingsScript = `${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
     theme: "invalid", editorSize: 99, lastSlug: "missing", expandProblemByDefault: "true",
-  });`;
+  });
+globalThis.migrated = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false }, 1);`;
   new vm.Script(settingsScript, { filename: "state-settings.test.js" }).runInNewContext(settingsContext);
-  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: false }), "损坏的界面设置会被归一化");
+  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true }), "损坏的界面设置会回退到默认展开题面");
+  check(JSON.stringify(settingsContext.migrated) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: true }), "旧版状态升级后会采用默认展开题面");
+}
+
+function verifyPrivacyShortcutHelpers(html, check) {
+  const start = html.indexOf("function resetPrivacyShortcut");
+  const end = html.indexOf("function updatePrivacyPageClock", start);
+  check(start >= 0 && end > start, "可提取双击回车判定函数");
+  const context = { Event: class Event { constructor(type) { this.type = type; } } };
+  const script = `let lastPrivacyEnterAt = null;
+let privacyFirstEnterSnapshot = null;
+const DOUBLE_ENTER_WINDOW_MS = 450;
+${html.slice(start, end)}
+globalThis.shortcutResults = [
+  registerPrivacyEnter(1_000),
+  registerPrivacyEnter(1_300),
+  registerPrivacyEnter(2_000),
+  (resetPrivacyShortcut(), registerPrivacyEnter(3_000)),
+  registerPrivacyEnter(3_451),
+  registerPrivacyEnter(3_700),
+];
+const textarea = {
+  value: "line",
+  selectionStart: 4,
+  selectionEnd: 4,
+  selectionDirection: "none",
+  scrollTop: 12,
+  isConnected: true,
+  matches: (selector) => selector === "textarea",
+  setSelectionRange(start, end, direction) { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; },
+  dispatchEvent(event) { this.dispatchedEvent = event.type; },
+};
+rememberPrivacyFirstEnter({ target: textarea });
+textarea.value = "line\\n";
+textarea.selectionStart = 5;
+textarea.selectionEnd = 5;
+restorePrivacyFirstEnter({ target: textarea });
+globalThis.snapshotResult = { value: textarea.value, selectionStart: textarea.selectionStart, scrollTop: textarea.scrollTop, event: textarea.dispatchedEvent };`;
+  new vm.Script(script, { filename: "double-enter.test.js" }).runInNewContext(context);
+  check(JSON.stringify(context.shortcutResults) === JSON.stringify([false, true, false, false, false, true]), "双击回车仅在 450ms 时间窗内触发并在触发后复位");
+  check(JSON.stringify(context.snapshotResult) === JSON.stringify({ value: "line", selectionStart: 4, scrollTop: 12, event: "input" }), "编辑器触发隐私页时会撤销第一次回车产生的多余换行");
 }
 
 async function testPyodide() {
@@ -406,7 +452,14 @@ async function verifyArtifact(html) {
   check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
   check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
-  check(html.includes('id="auto-expand-button"') && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "可在顶部设置进入题目时是否自动展开题面");
+  check(html.includes("const STATE_VERSION = 2") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且旧版设置可迁移");
+  check(html.includes('id="privacy-view"') && html.includes('document.title = "每日工作台"') && html.includes("setPrivacyMode(!privacyMode)"), "双击回车可切换独立隐私伪装页并隐藏真实标题");
+  check(html.includes('[data-theme="dark"] .privacy-view') && html.includes("--privacy-bg-top") && html.includes("--privacy-card"), "隐私伪装页会跟随当前深色或浅色主题");
+  check(html.includes('history.replaceState(history.state, "", location.href.split("#")[0])') && html.includes("privacyRestoreHash"), "隐私伪装页会隐藏并恢复地址栏题目标识");
+  check(html.includes("privacyRestoreScrollX") && html.includes("window.scrollTo(privacyRestoreScrollX, privacyRestoreScrollY)") && html.includes("elements.privacy_view.inert = true"), "隐私伪装页会恢复滚动位置并隔离不可见区域焦点");
+  check(html.includes('role="tablist"') && html.includes('role="tabpanel"') && html.includes('event.key === "ArrowRight"'), "工作区标签支持完整语义与方向键导航");
+  check(html.includes("function trapModalFocus") && html.includes('modal.setAttribute("aria-hidden", "false")'), "弹窗会维护可访问状态并限制键盘焦点");
+  check(html.includes("const savePulseTimers = new WeakMap()") && html.includes('document.visibilityState === "hidden"') && html.includes('window.addEventListener("pagehide"'), "保存提示去抖且页面进入后台时立即持久化");
   check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>') && html.includes('id="custom-case-button"'), "运行与提交操作支持添加自定义样例");
   check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
@@ -420,6 +473,7 @@ async function verifyArtifact(html) {
   assertions.push("内嵌 JavaScript 语法正确");
   verifyExportHelpers(html, check);
   verifyStateHelpers(html, check);
+  verifyPrivacyShortcutHelpers(html, check);
   const difficultyCounts = problems.reduce((counts, problem) => {
     counts[problem.difficulty] = (counts[problem.difficulty] || 0) + 1;
     return counts;

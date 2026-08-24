@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">隐私伪装页每日工作台</title>
+  <desc id="desc">与刷题内容无关的深色每日工作台界面，包含今日安排、快捷备忘和本周计划。</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#151c2a"/>
+      <stop offset="1" stop-color="#0f1420"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="8%" cy="0%" r="42%">
+      <stop stop-color="#7c98ff" stop-opacity=".11"/>
+      <stop offset="1" stop-color="#7c98ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity=".25"/>
+    </filter>
+    <style>
+      .ui { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .heading { fill: #edf1f8; }
+      .text { fill: #dce3ef; }
+      .muted { fill: #a7b0c2; }
+      .faint { fill: #7f899e; }
+      .tiny { font-size: 12px; }
+      .card { fill: #171d2a; fill-opacity: .92; stroke: #2b3446; }
+    </style>
+  </defs>
+
+  <g class="ui">
+    <rect width="1440" height="900" fill="url(#background)"/>
+    <rect width="1440" height="900" fill="url(#glow)"/>
+
+    <g transform="translate(200 38)">
+      <rect width="34" height="34" rx="10" fill="#526fca"/>
+      <text x="17" y="23" text-anchor="middle" fill="#fff" font-size="15" font-weight="750">日</text>
+      <text x="47" y="23" fill="#edf1f8" font-size="17" font-weight="760">日常工作台</text>
+      <circle cx="893" cy="17" r="7" fill="#5fd0a5" fill-opacity=".12"/>
+      <circle cx="893" cy="17" r="3.5" fill="#5fd0a5"/>
+      <text x="907" y="21" class="muted tiny">本地内容已保存</text>
+    </g>
+
+    <text x="200" y="150" class="muted" font-size="13" font-weight="650" letter-spacing=".5">8月25日 星期二</text>
+    <text x="200" y="215" class="heading" font-size="54" font-weight="780" letter-spacing="-2">今日概览</text>
+    <text x="200" y="257" class="muted" font-size="15">保持节奏，先完成最重要的一件事。这里汇总了今天的日程、备忘和本周进度。</text>
+
+    <g filter="url(#shadow)">
+      <rect x="200" y="300" width="690" height="455" rx="18" class="card"/>
+      <rect x="908" y="300" width="332" height="212" rx="18" class="card"/>
+      <rect x="908" y="530" width="332" height="225" rx="18" class="card"/>
+    </g>
+
+    <text x="224" y="340" fill="#edf1f8" font-size="16" font-weight="720">今日安排</text>
+    <text x="866" y="340" text-anchor="end" fill="#7f899e" class="tiny">更新于 14:20</text>
+    <line x1="200" y1="362" x2="890" y2="362" stroke="#2b3446"/>
+
+    <g>
+      <text x="225" y="409" fill="#7f899e" class="tiny">09:30</text>
+      <circle cx="308" cy="405" r="4" fill="#5fd0a5" stroke="#5fd0a5" stroke-width="2"/>
+      <text x="337" y="402" class="text" font-size="14" font-weight="680">整理本周资料</text>
+      <text x="337" y="424" class="faint tiny">归档文档与待处理事项</text>
+      <line x1="224" y1="446" x2="866" y2="446" stroke="#252d3d"/>
+
+      <text x="225" y="493" fill="#7f899e" class="tiny">11:00</text>
+      <circle cx="308" cy="489" r="4" fill="#171d2a" stroke="#7c98ff" stroke-width="2"/>
+      <text x="337" y="486" class="text" font-size="14" font-weight="680">项目进度同步</text>
+      <text x="337" y="508" class="faint tiny">确认里程碑和后续安排</text>
+      <line x1="224" y1="530" x2="866" y2="530" stroke="#252d3d"/>
+
+      <text x="225" y="577" fill="#7f899e" class="tiny">14:30</text>
+      <circle cx="308" cy="573" r="4" fill="#171d2a" stroke="#7c98ff" stroke-width="2"/>
+      <text x="337" y="570" class="text" font-size="14" font-weight="680">集中处理邮件</text>
+      <text x="337" y="592" class="faint tiny">回复需要跟进的信息</text>
+      <line x1="224" y1="614" x2="866" y2="614" stroke="#252d3d"/>
+
+      <text x="225" y="661" fill="#7f899e" class="tiny">17:30</text>
+      <circle cx="308" cy="657" r="4" fill="#171d2a" stroke="#7c98ff" stroke-width="2"/>
+      <text x="337" y="654" class="text" font-size="14" font-weight="680">今日复盘</text>
+      <text x="337" y="676" class="faint tiny">记录完成项与明日重点</text>
+    </g>
+
+    <text x="932" y="340" fill="#7f899e" font-size="11" font-weight="750" letter-spacing="1.4">QUICK NOTE</text>
+    <text x="932" y="384" fill="#dce3ef" font-size="14">重要但不紧急的事项，</text>
+    <text x="932" y="412" fill="#dce3ef" font-size="14">安排固定时间集中处理，</text>
+    <text x="932" y="440" fill="#dce3ef" font-size="14">避免频繁切换注意力。</text>
+
+    <text x="932" y="575" fill="#edf1f8" font-size="15" font-weight="700">本周计划</text>
+    <text x="1216" y="581" text-anchor="end" fill="#7c98ff" font-size="25" font-weight="760">68%</text>
+    <rect x="932" y="610" width="284" height="7" rx="3.5" fill="#252d3d"/>
+    <rect x="932" y="610" width="193" height="7" rx="3.5" fill="#7c98ff"/>
+    <text x="932" y="654" fill="#7f899e" class="tiny">本周已完成 13 项，还有 6 项待处理。</text>
+
+    <text x="200" y="804" fill="#7f899e" font-size="11">个人工作区</text>
+    <text x="1240" y="804" text-anchor="end" fill="#7f899e" font-size="11">内容仅保存在本地</text>
+    <text x="720" y="870" text-anchor="middle" fill="#7f899e" font-size="11">隐私伪装页 · 深色中性工作台界面示意</text>
+  </g>
+</svg>
