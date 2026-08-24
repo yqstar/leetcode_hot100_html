@@ -34,7 +34,7 @@
     <rect x="26" y="14" width="40" height="40" rx="12" fill="url(#mark)"/>
     <text x="46" y="40" text-anchor="middle" fill="#fff" font-size="15" font-weight="800">Py</text>
     <text x="78" y="31" class="text" font-size="15" font-weight="750">Python 离线训练场</text>
-    <text x="78" y="50" class="muted" font-size="12">LeetCode 算法题 · 题面、评测、题解与笔记</text>
+    <text x="78" y="50" class="muted" font-size="12">LC 算法题 · 题面、评测、题解与笔记</text>
 
     <rect x="967" y="19" width="88" height="31" rx="16" class="surface2"/>
     <circle cx="984" cy="34.5" r="4" fill="#5fd0a5"/>
