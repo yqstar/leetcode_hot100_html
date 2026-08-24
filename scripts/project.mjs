@@ -43,7 +43,7 @@ async function buildArtifact() {
   }
   if (/__[A-Z][A-Z0-9_]+__/.test(output)) throw new Error("HTML 构建占位符未完整替换");
 
-  const outputPath = new URL("leetcode_hot100_offline.html", root);
+  const outputPath = new URL("leetcode_offline.html", root);
   const outputBuffer = Buffer.from(output);
   let previous = null;
   try {
@@ -55,7 +55,7 @@ async function buildArtifact() {
   if (changed) await writeFile(outputPath, outputBuffer);
 
   const hash = createHash("sha256").update(outputBuffer).digest("hex");
-  console.log(changed ? "已生成 leetcode_hot100_offline.html" : "构建产物无变化，跳过写入");
+  console.log(changed ? "已生成 leetcode_offline.html" : "构建产物无变化，跳过写入");
   console.log(`题目 ${problems.length}，题解 ${Object.keys(solutions).length}，内嵌图片 ${(output.match(/data:image\//gi) || []).length}`);
   console.log(`大小 ${(outputBuffer.byteLength / 1024 / 1024).toFixed(2)} MiB，SHA-256 ${hash}`);
   return output;
@@ -133,6 +133,87 @@ function testNegativeCases() {
     if (result?.passed) throw new Error(`${cases[index][0]} 未能拒绝：${cases[index][2]}`);
   }
   console.log(`PASS ${cases.length} 类错误答案均被拒绝`);
+}
+
+function testCustomCases() {
+  const methodSolution = solutions["two-sum"];
+  const methodPayload = payloadFor(methodSolution, methodSolution.code, 0);
+  methodPayload.cases = [{ index: 0, visible: true, label: "自定义样例 1", value: [[5, 1, 9], 10] }];
+
+  const classSolution = solutions["lru-cache"];
+  const classPayload = payloadFor(classSolution, classSolution.code, 0);
+  classPayload.cases = [{ index: 0, visible: true, label: "自定义样例 2", value: { ops: ["LRUCache", "put", "get"], args: [[1], [7, 9], [7]] } }];
+
+  const invalidClassPayload = payloadFor(classSolution, classSolution.code, 0);
+  invalidClassPayload.cases = [{ index: 0, visible: true, value: { ops: ["LRUCache", "get"], args: [[1]] } }];
+
+  const { processResult, parsed } = pythonResults([methodPayload, classPayload, invalidClassPayload]);
+  const valid = parsed?.[0]?.passed && parsed?.[0]?.results?.[0]?.label === "自定义样例 1"
+    && parsed?.[1]?.passed && parsed?.[1]?.results?.[0]?.label === "自定义样例 2";
+  if (processResult.status !== 0 || !valid || parsed?.[2]?.fatal !== "内置参考实现执行失败") {
+    throw new Error(`自定义样例执行失败：${processResult.stderr || processResult.stdout}`);
+  }
+  console.log("PASS 函数题、设计题与无效自定义样例校验");
+}
+
+function verifyExportHelpers(html, check) {
+  const start = html.indexOf("function base64FromBytes");
+  const end = html.indexOf("function exportMarkdown", start);
+  check(start >= 0 && end > start, "可提取 Markdown 导出辅助函数");
+  const context = {
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    btoa: (value) => Buffer.from(value, "binary").toString("base64"),
+    atob: (value) => Buffer.from(value, "base64").toString("binary"),
+    escapeHtml: (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;"),
+  };
+  const sample = "中文笔记 | 换行\nemoji 🚀";
+  const script = `${html.slice(start, end)}\nglobalThis.helperResult = {
+    decoded: decodeRecordText(encodeRecordText(${JSON.stringify(sample)})),
+    note: markdownTableCell(${JSON.stringify(sample + " <tag>")}),
+    code: markdownCodeCell("if x < 2:\\n    return x"),
+  };`;
+  new vm.Script(script, { filename: "export-helpers.test.js" }).runInNewContext(context);
+  check(context.helperResult.decoded === sample, "导出文本 UTF-8 编解码可往返");
+  check(context.helperResult.note.includes("&#124;") && context.helperResult.note.includes("<br>") && context.helperResult.note.includes("&lt;tag&gt;"), "Markdown 表格笔记转义正确");
+  check(context.helperResult.code.startsWith("<code>") && context.helperResult.code.includes("&nbsp;&nbsp;&nbsp;&nbsp;"), "Markdown 表格代码格式正确");
+}
+
+function verifyStateHelpers(html, check) {
+  const recordStart = html.indexOf("function normalizeRecord");
+  const settingsStart = html.indexOf("function normalizeSettings", recordStart);
+  const loadStateStart = html.indexOf("function loadState", settingsStart);
+  check(recordStart >= 0 && settingsStart > recordStart && loadStateStart > settingsStart, "可提取本地状态校验函数");
+
+  const recordContext = {
+    VALID_STATUSES: new Set(["todo", "attempted", "solved"]),
+    MAX_CUSTOM_CASES: 2,
+    MAX_CUSTOM_CASE_LENGTH: 5,
+    EMPTY_RECORD: Object.freeze({ status: "todo", attempts: 0, note: "", updatedAt: null, passedAt: null }),
+  };
+  const recordScript = `${html.slice(recordStart, settingsStart)}\nglobalThis.normalized = normalizeRecord({
+    status: "invalid", attempts: -3, note: 42, code: null,
+    customCases: ["valid", "too-long", 7, "ok"],
+  });`;
+  new vm.Script(recordScript, { filename: "state-record.test.js" }).runInNewContext(recordContext);
+  check(recordContext.normalized.status === "todo" && recordContext.normalized.attempts === 0 && recordContext.normalized.note === "" && !("code" in recordContext.normalized), "损坏的题目状态会回退到安全默认值");
+  check(JSON.stringify(recordContext.normalized.customCases) === JSON.stringify(["valid", "ok"]), "自定义样例会按类型、大小和数量清洗");
+
+  const settingsContext = {
+    blankState: () => ({ settings: { theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: false } }),
+    bySlug: new Map([["first", true]]),
+  };
+  const settingsScript = `${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
+    theme: "invalid", editorSize: 99, lastSlug: "missing", expandProblemByDefault: "true",
+  });`;
+  new vm.Script(settingsScript, { filename: "state-settings.test.js" }).runInNewContext(settingsContext);
+  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: false }), "损坏的界面设置会被归一化");
 }
 
 async function testPyodide() {
@@ -227,7 +308,11 @@ async function verifyArtifact(html) {
   check(/^<!doctype html>/i.test(html), "包含 HTML5 文档声明");
   check(problems.length === 100, "题目数据恰好 100 道");
   check(Object.keys(solutions).length === 100, "参考题解恰好 100 份");
+  check(new Set(problems.map((problem) => problem.slug)).size === problems.length, "题目 slug 唯一");
+  check(new Set(problems.map((problem) => String(problem.frontendId))).size === problems.length, "题号唯一");
   check(problems.every((problem) => solutions[problem.slug]), "每道题都有评测配置");
+  check(Object.keys(solutions).every((slug) => problems.some((problem) => problem.slug === slug)), "没有多余的题解配置");
+  check(Object.values(solutions).every((solution) => typeof solution.code === "string" && solution.code.trim() && Array.isArray(solution.tests) && solution.tests.length), "每份题解都有代码和测试用例");
   check(problems.every((problem) => !/<img\b[^>]*\bsrc=["'](?:https?:)?\/\//i.test(problem.content)), "题目快照没有外部图片");
   check(Object.keys(lock.packages || {}).length === 0, "Pyodide 锁文件只保留必要元数据");
   check(!/__PROBLEMS_JSON__|__SOLUTIONS_JSON__|__PYODIDE_[A-Z0-9_]+__|__APP_SCRIPT__|__STYLES__/.test(html), "构建占位符已全部替换");
@@ -236,9 +321,15 @@ async function verifyArtifact(html) {
   check(!/<(?:img|video|audio|source)\b[^>]*\bsrc=["']https?:\/\//i.test(html), "没有外部媒体资源依赖");
   check(!/url\(\s*["']?https?:\/\//i.test(html), "CSS 没有外部资源依赖");
   check((html.match(/data:image\//gi) || []).length >= 60, "题面示意图已内嵌");
-  check(html.includes("HOT100_EXPORT_VERSION:2") && html.includes("HOT100_RECORD") && html.includes("HOT100_NOTE_START"), "包含 Markdown 导入导出协议");
-  check(html.includes("export-code-checkbox") && html.includes("同时导出个人代码"), "Markdown 导出可选个人代码");
-  check(html.includes('id="problem-toggle-button"') && html.includes("setProblemPaneCollapsed(true)"), "进入题目时默认收起题面并可手动展开");
+  check(html.includes('<html lang="zh-CN" data-theme="dark">'), "默认使用深色模式");
+  const staticHtml = html.slice(0, html.indexOf("<script>"));
+  const htmlIds = [...staticHtml.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+  check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
+  check(html.includes("const EXPORT_VERSION = 1") && html.includes("LEETCODE_EXPORT_VERSION:") && html.includes("LEETCODE_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
+  check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
+  check(html.includes('id="auto-expand-button"') && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "可在顶部设置进入题目时是否自动展开题面");
+  check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>') && html.includes('id="custom-case-button"'), "运行与提交操作支持添加自定义样例");
+  check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
   check(html.includes("prewarmJudge()") && html.includes("Python 运行时已内置，将自动准备"), "Python 运行时自动预热");
   check(html.includes("startMainThreadJudge") && !html.includes('new Worker(workerUrl, { type: "module"'), "包含 file:// 兼容回退");
@@ -246,8 +337,10 @@ async function verifyArtifact(html) {
   check(Buffer.byteLength(html) > 15 * 1024 * 1024, "Python、题面和图片已打包进单文件");
   const scriptMatch = html.match(/<script>([\s\S]*)<\/script>\s*<\/body>/i);
   check(Boolean(scriptMatch), "主应用脚本已内嵌");
-  new vm.Script(scriptMatch[1], { filename: "leetcode_hot100_offline.inline.js" });
+  new vm.Script(scriptMatch[1], { filename: "leetcode_offline.inline.js" });
   assertions.push("内嵌 JavaScript 语法正确");
+  verifyExportHelpers(html, check);
+  verifyStateHelpers(html, check);
   const difficultyCounts = problems.reduce((counts, problem) => {
     counts[problem.difficulty] = (counts[problem.difficulty] || 0) + 1;
     return counts;
@@ -267,6 +360,7 @@ if (process.argv.includes("--memory-runtime")) {
   const html = await buildArtifact();
   testReferenceSolutions();
   testNegativeCases();
+  testCustomCases();
   await testPyodide();
   testMemoryRuntimeInChild();
   await verifyArtifact(html);
