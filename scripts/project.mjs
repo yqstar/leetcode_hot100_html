@@ -149,21 +149,29 @@ const harnessLibrary = pythonHarness.replace(
   "",
 );
 if (harnessLibrary === pythonHarness) throw new Error("无法拆分 Python 评测器入口");
+const PYTHON_BATCH_RUNNER = `import json, sys\n${harnessLibrary}\npayloads = json.load(sys.stdin)\nprint(json.dumps([run_payload(payload) for payload in payloads], ensure_ascii=False))\n`;
+if (Buffer.byteLength(PYTHON_BATCH_RUNNER) > 64 * 1024) throw new Error("Python 批量测试入口超过安全的命令行参数大小");
 
 function pythonResults(payloads) {
-  const encoded = Buffer.from(JSON.stringify(payloads)).toString("base64");
-  const source = `import base64, json\npayloads_json=base64.b64decode('${encoded}').decode()\n${harnessLibrary}\nprint(json.dumps([run_payload(payload) for payload in json.loads(payloads_json)], ensure_ascii=False))\n`;
-  const processResult = spawnSync("python3", ["-c", source], {
+  const processResult = spawnSync("python3", ["-c", PYTHON_BATCH_RUNNER], {
     encoding: "utf8",
+    input: JSON.stringify(payloads),
     maxBuffer: 10 * 1024 * 1024,
   });
   let parsed;
   try {
-    parsed = JSON.parse(processResult.stdout.trim());
+    parsed = JSON.parse(typeof processResult.stdout === "string" ? processResult.stdout.trim() : "");
   } catch (error) {
     parsed = null;
   }
   return { processResult, parsed };
+}
+
+function pythonProcessFailure(processResult) {
+  return processResult.error?.stack
+    || processResult.stderr?.trim()
+    || processResult.stdout?.trim()
+    || `python3 子进程未正常退出（status=${processResult.status}, signal=${processResult.signal || "none"}）`;
 }
 
 function payloadFor(solution, userCode = solution.code, limit = solution.tests.length) {
@@ -189,7 +197,7 @@ function testReferenceSolutions() {
   }
   const { processResult, parsed } = pythonResults(evaluable.map(({ payload }) => payload));
   if (processResult.status !== 0 || !Array.isArray(parsed)) {
-    throw new Error(`参考实现批量执行失败：${processResult.stderr || processResult.stdout}`);
+    throw new Error(`参考实现批量执行失败：${pythonProcessFailure(processResult)}`);
   }
   for (const [index, result] of parsed.entries()) {
     if (result?.passed) continue;
@@ -210,7 +218,7 @@ function testNegativeCases() {
   ];
   const { processResult, parsed } = pythonResults(cases.map(([slug, userCode]) => payloadFor(solutions[slug], userCode, 2)));
   if (processResult.status !== 0 || !Array.isArray(parsed)) {
-    throw new Error(`反例批量执行失败：${processResult.stderr || processResult.stdout}`);
+    throw new Error(`反例批量执行失败：${pythonProcessFailure(processResult)}`);
   }
   for (const [index, result] of parsed.entries()) {
     if (result?.passed) throw new Error(`${cases[index][0]} 未能拒绝：${cases[index][2]}`);
@@ -234,7 +242,7 @@ function testCustomCases() {
   const valid = parsed?.[0]?.passed && parsed?.[0]?.results?.[0]?.label === "自定义样例 1"
     && parsed?.[1]?.passed && parsed?.[1]?.results?.[0]?.label === "自定义样例 2";
   if (processResult.status !== 0 || !valid || parsed?.[2]?.fatal !== "内置参考实现执行失败") {
-    throw new Error(`自定义样例执行失败：${processResult.stderr || processResult.stdout}`);
+    throw new Error(`自定义样例执行失败：${pythonProcessFailure(processResult)}`);
   }
   console.log("PASS 函数题、设计题与无效自定义样例校验");
 }
