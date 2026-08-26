@@ -297,8 +297,8 @@ function verifyStateHelpers(html, check) {
   check(JSON.stringify(recordContext.normalized.customCases) === JSON.stringify(["valid", "ok"]), "自定义样例会按类型、大小和数量清洗");
 
   const settingsContext = {
-    STATE_VERSION: 2,
-    blankState: () => ({ settings: { theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true } }),
+    STATE_VERSION: 3,
+    blankState: () => ({ settings: { theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 } }),
     bySlug: new Map([["first", true]]),
   };
   const settingsScript = `${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
@@ -306,8 +306,8 @@ function verifyStateHelpers(html, check) {
   });
 globalThis.migrated = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false }, 1);`;
   new vm.Script(settingsScript, { filename: "state-settings.test.js" }).runInNewContext(settingsContext);
-  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true }), "损坏的界面设置会回退到默认展开题面");
-  check(JSON.stringify(settingsContext.migrated) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: true }), "旧版状态升级后会采用默认展开题面");
+  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "损坏的界面设置会回退到默认展开题面和分栏宽度");
+  check(JSON.stringify(settingsContext.migrated) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "旧版状态升级后会采用默认展开题面和分栏宽度");
 }
 
 function verifyPrivacyShortcutHelpers(html, check) {
@@ -347,6 +347,71 @@ globalThis.snapshotResult = { value: textarea.value, selectionStart: textarea.se
   new vm.Script(script, { filename: "double-enter.test.js" }).runInNewContext(context);
   check(JSON.stringify(context.shortcutResults) === JSON.stringify([false, true, false, false, false, true]), "双击回车仅在 450ms 时间窗内触发并在触发后复位");
   check(JSON.stringify(context.snapshotResult) === JSON.stringify({ value: "line", selectionStart: 4, scrollTop: 12, event: "input" }), "编辑器触发隐私页时会撤销第一次回车产生的多余换行");
+}
+
+function verifyEditorHelpers(html, check) {
+  const start = html.indexOf("function indentCodeSelection");
+  const end = html.indexOf("function base64FromBytes", start);
+  check(start >= 0 && end > start, "可提取代码缩进辅助函数");
+  const context = { Event: class Event { constructor(type) { this.type = type; } } };
+  const script = `const editor = {
+  value: "a\\nb\\n", selectionStart: 0, selectionEnd: 4,
+  setRangeText(text, start, end, mode) {
+    this.value = this.value.slice(0, start) + text + this.value.slice(end);
+    const cursor = mode === "end" ? start + text.length : start;
+    this.selectionStart = cursor; this.selectionEnd = cursor;
+  },
+  setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; },
+  dispatchEvent() {},
+};
+const elements = { code_editor: editor };
+${html.slice(start, end)}
+indentCodeSelection(false);
+globalThis.indented = { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd };
+indentCodeSelection(true);
+globalThis.outdented = { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd };
+editor.value = "  x"; editor.selectionStart = editor.selectionEnd = 2; indentCodeSelection(false);
+globalThis.tabStop = { value: editor.value, cursor: editor.selectionStart };
+editor.value = "\\tx"; editor.selectionStart = editor.selectionEnd = 1; indentCodeSelection(true);
+globalThis.tabOut = { value: editor.value, cursor: editor.selectionStart };
+editor.value = "if ok:\\n    work()\\n"; editor.selectionStart = 0; editor.selectionEnd = editor.value.length;
+toggleCodeComment();
+globalThis.commented = { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd };
+toggleCodeComment();
+globalThis.uncommented = { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd };
+editor.value = "    if ready: # note"; editor.selectionStart = editor.selectionEnd = editor.value.length;
+insertIndentedNewline();
+globalThis.nestedNewline = { value: editor.value, cursor: editor.selectionStart };
+editor.value = "    value = 1"; editor.selectionStart = editor.selectionEnd = editor.value.length;
+insertIndentedNewline();
+globalThis.inheritedNewline = { value: editor.value, cursor: editor.selectionStart };`;
+  new vm.Script(script, { filename: "editor-helpers.test.js" }).runInNewContext(context);
+  check(JSON.stringify(context.indented) === JSON.stringify({ value: "    a\n    b\n", start: 0, end: 12 })
+    && JSON.stringify(context.outdented) === JSON.stringify({ value: "a\nb\n", start: 0, end: 4 }), "多行选择可缩进、反缩进且不会误选下一行");
+  check(JSON.stringify(context.tabStop) === JSON.stringify({ value: "    x", cursor: 4 })
+    && JSON.stringify(context.tabOut) === JSON.stringify({ value: "x", cursor: 0 }), "单光标缩进遵循四空格制表位并可移除 Tab");
+  check(JSON.stringify(context.commented) === JSON.stringify({ value: "# if ok:\n    # work()\n", start: 0, end: 22 })
+    && JSON.stringify(context.uncommented) === JSON.stringify({ value: "if ok:\n    work()\n", start: 0, end: 18 }), "当前行或多行选择可切换 Python 注释并保持选择范围");
+  check(JSON.stringify(context.nestedNewline) === JSON.stringify({ value: "    if ready: # note\n        ", cursor: 29 })
+    && JSON.stringify(context.inheritedNewline) === JSON.stringify({ value: "    value = 1\n    ", cursor: 18 }), "回车会继承当前缩进并在冒号语句后增加一级缩进");
+}
+
+function verifySyntaxHighlighting(html, check) {
+  const start = html.indexOf("const PYTHON_KEYWORDS");
+  const end = html.indexOf("function updateCodeHighlight", start);
+  check(start >= 0 && end > start, "可提取 Python 语法高亮函数");
+  const context = {
+    sample: "@cache\ndef greet(self, name):\n    message = \"# not a comment\"\n    # <safe>\n    return print(message, 42)\n",
+    escapeHtml: (value) => String(value).replace(/[&<>'\"]/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '\"': "&quot;",
+    })[character]),
+  };
+  const script = `${html.slice(start, end)}\nglobalThis.highlighted = highlightPython(sample);`;
+  new vm.Script(script, { filename: "syntax-highlighting.test.js" }).runInNewContext(context);
+  const highlighted = context.highlighted;
+  check(["py-decorator", "py-keyword", "py-definition", "py-self", "py-string", "py-comment", "py-builtin", "py-number", "py-operator"]
+    .every((className) => highlighted.includes(`class="${className}"`)), "Python 高亮覆盖装饰器、关键词、定义、字符串、注释、内置函数、数字和运算符");
+  check(highlighted.includes("&lt;safe&gt;") && !highlighted.includes("<safe>") && (highlighted.match(/py-comment/g) || []).length === 1, "语法高亮会转义代码且不会把字符串中的井号识别为注释");
 }
 
 async function testPyodide() {
@@ -460,8 +525,13 @@ async function verifyArtifact(html) {
   check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
   check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
-  check(html.includes("const STATE_VERSION = 2") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且旧版设置可迁移");
+  check(html.includes("const STATE_VERSION = 3") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且旧版设置可迁移");
+  check(html.includes('id="pane-resizer"') && html.includes("setProblemPaneWidth") && html.includes("problemPaneWidth: 43"), "题目和代码分栏支持调整宽度并持久化");
+  check(html.includes('id="catalog-result-count"') && html.includes("mobileWorkspaceMedia"), "目录筛选和移动端单屏工作区完整");
+  check(html.includes('id="code-highlight"') && html.includes("function highlightPython") && html.includes("function updateCodeHighlight"), "代码编辑器包含离线 Python 语法高亮层");
+  check(html.includes("function indentCodeSelection") && html.includes("function toggleCodeComment") && html.includes("function insertIndentedNewline") && html.includes('event.key.toLowerCase() === "s"'), "代码编辑器支持块级缩进、切换注释、回车缩进与快捷保存");
   check(html.includes('id="privacy-view"') && html.includes('document.title = "每日工作台"') && html.includes("setPrivacyMode(!privacyMode)"), "双击回车可切换独立隐私伪装页并隐藏真实标题");
+  check(!html.includes("`${problem.frontendId}. ${problem.title} · Python 离线训练场`") && html.includes('document.title = "Python 离线训练场"'), "浏览器标签始终使用固定的训练场标题");
   check(html.includes('[data-theme="dark"] .privacy-view') && html.includes("--privacy-bg-top") && html.includes("--privacy-card"), "隐私伪装页会跟随当前深色或浅色主题");
   check(html.includes('history.replaceState(history.state, "", location.href.split("#")[0])') && html.includes("privacyRestoreHash"), "隐私伪装页会隐藏并恢复地址栏题目标识");
   check(html.includes("privacyRestoreScrollX") && html.includes("window.scrollTo(privacyRestoreScrollX, privacyRestoreScrollY)") && html.includes("elements.privacy_view.inert = true"), "隐私伪装页会恢复滚动位置并隔离不可见区域焦点");
@@ -482,6 +552,8 @@ async function verifyArtifact(html) {
   verifyExportHelpers(html, check);
   verifyStateHelpers(html, check);
   verifyPrivacyShortcutHelpers(html, check);
+  verifyEditorHelpers(html, check);
+  verifySyntaxHighlighting(html, check);
   const difficultyCounts = problems.reduce((counts, problem) => {
     counts[problem.difficulty] = (counts[problem.difficulty] || 0) + 1;
     return counts;
