@@ -34,7 +34,7 @@
 
 两个版本都已经内嵌题目、图片、题解、评测器和完整 Python 运行时，不依赖项目中的其他文件，也不会联网加载资源。推荐使用最新版 Chrome 或 Edge；Safari、Firefox 也可使用，但 `file://` 页面本地存储策略可能因浏览器而异，建议定期导出 Markdown 备份。
 
-每次推送 `v*` 版本标签时，GitHub Actions 会重新构建并完成全部测试，然后把 `lc_offline_compact.html` 上传为对应 GitHub Release 的下载附件。同一标签的发布流程重跑时会覆盖旧附件。
+推送 `v*` 版本标签时，GitHub Actions 会先确认标签指向的提交已经包含在 `main` 分支中；只有通过检查才会重新构建、完成全部测试，并把 `lc_offline_compact.html` 上传为对应 GitHub Release 的下载附件。功能分支上的标签会安全跳过发布；同一标签的发布流程重跑时会覆盖旧附件。
 
 ## 功能
 
