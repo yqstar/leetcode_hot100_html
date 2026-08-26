@@ -6,17 +6,48 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  eligibility:
+    name: Check tag commit is on main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      publish: ${{ steps.main-check.outputs.publish }}
+
+    steps:
+      - name: Check out tag history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check whether tagged commit is contained in main
+        id: main-check
+        shell: bash
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          TAG_COMMIT="$(git rev-parse "${GITHUB_REF}^{commit}")"
+          if git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $GITHUB_REF_NAME points to a commit contained in main."
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Release skipped::$GITHUB_REF_NAME is not contained in main. Merge it into main before publishing a release."
+          fi
+
   release:
     name: Build and publish compact HTML
+    needs: eligibility
+    if: needs.eligibility.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repository
