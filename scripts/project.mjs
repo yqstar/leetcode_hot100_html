@@ -5,16 +5,38 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import vm from "node:vm";
 import solutions from "../src/solutions.mjs";
+import pythonFormatter from "../src/python-formatter.mjs";
 import pythonHarness from "../src/python-harness.mjs";
 
 const root = new URL("../", import.meta.url);
 const runtimeUrl = new URL(".cache/runtime/", root);
+const formatterUrl = new URL("src/vendor/black-26.5.1/", root);
 const problems = JSON.parse(await readFile(new URL("src/problems.json", root), "utf8"));
+const formatterManifest = JSON.parse(await readFile(new URL("manifest.json", formatterUrl), "utf8"));
 
 const safeJson = (value) => JSON.stringify(value)
   .replaceAll("<", "\\u003c")
   .replaceAll("\u2028", "\\u2028")
   .replaceAll("\u2029", "\\u2029");
+
+let formatterBundleCache = null;
+
+async function loadFormatterBundle() {
+  if (formatterBundleCache) return formatterBundleCache;
+  const wheelEntries = await Promise.all(formatterManifest.packages.map(async ({ filename, sha256 }) => {
+    const wheel = await readFile(new URL(filename, formatterUrl));
+    const actualHash = createHash("sha256").update(wheel).digest("hex");
+    if (actualHash !== sha256) throw new Error(`格式化器依赖校验失败：${filename}`);
+    return [filename, wheel.toString("base64")];
+  }));
+  formatterBundleCache = {
+    name: formatterManifest.formatter.name,
+    version: formatterManifest.formatter.version,
+    lineLength: formatterManifest.formatter.lineLength,
+    wheels: Object.fromEntries(wheelEntries),
+  };
+  return formatterBundleCache;
+}
 
 const compactShell = (compressedApp) => `<!doctype html>
 <html lang="zh-CN">
@@ -98,18 +120,21 @@ async function writeArtifact(relativePath, buffer) {
 }
 
 async function buildArtifact() {
-  const [source, lockText, loader, asmModule, wasm, stdlib] = await Promise.all([
+  const [source, lockText, loader, asmModule, wasm, stdlib, formatterBundle] = await Promise.all([
     readFile(new URL("src/app.html", root), "utf8"),
     readFile(new URL("pyodide-lock.json", runtimeUrl), "utf8"),
     readFile(new URL("pyodide.mjs", runtimeUrl)),
     readFile(new URL("pyodide.asm.mjs", runtimeUrl)),
     readFile(new URL("pyodide.asm.wasm", runtimeUrl)),
     readFile(new URL("python_stdlib.zip", runtimeUrl)),
+    loadFormatterBundle(),
   ]);
   const replacements = {
     __PROBLEMS_JSON__: safeJson(problems),
     __SOLUTIONS_JSON__: safeJson(solutions),
     __PYTHON_HARNESS_JSON__: safeJson(pythonHarness),
+    __PYTHON_FORMATTER_JSON__: safeJson(pythonFormatter),
+    __FORMATTER_BUNDLE_JSON__: safeJson(formatterBundle),
     __PYODIDE_LOCK_JSON__: safeJson(JSON.parse(lockText)),
     __PYODIDE_LOADER_B64__: loader.toString("base64"),
     __PYODIDE_ASM_MJS_B64__: asmModule.toString("base64"),
@@ -297,17 +322,21 @@ function verifyStateHelpers(html, check) {
   check(JSON.stringify(recordContext.normalized.customCases) === JSON.stringify(["valid", "ok"]), "自定义样例会按类型、大小和数量清洗");
 
   const settingsContext = {
-    STATE_VERSION: 3,
-    blankState: () => ({ settings: { theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 } }),
+    DEFAULT_SETTINGS: Object.freeze({ theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }),
+    EDITOR_SIZE_MIN: 12,
+    EDITOR_SIZE_MAX: 20,
+    PROBLEM_PANE_MIN: 28,
+    PROBLEM_PANE_MAX: 68,
+    clamp: (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value)),
     bySlug: new Map([["first", true]]),
   };
   const settingsScript = `${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
-    theme: "invalid", editorSize: 99, lastSlug: "missing", expandProblemByDefault: "true",
+    theme: "invalid", editorSize: 99, lastSlug: "missing", expandProblemByDefault: "true", problemPaneWidth: null,
   });
-globalThis.migrated = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false }, 1);`;
+globalThis.valid = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 });`;
   new vm.Script(settingsScript, { filename: "state-settings.test.js" }).runInNewContext(settingsContext);
   check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "损坏的界面设置会回退到默认展开题面和分栏宽度");
-  check(JSON.stringify(settingsContext.migrated) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "旧版状态升级后会采用默认展开题面和分栏宽度");
+  check(JSON.stringify(settingsContext.valid) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 }), "有效界面设置会直接保留且不再经过旧版迁移分支");
 }
 
 function verifyPrivacyShortcutHelpers(html, check) {
@@ -349,20 +378,41 @@ globalThis.snapshotResult = { value: textarea.value, selectionStart: textarea.se
   check(JSON.stringify(context.snapshotResult) === JSON.stringify({ value: "line", selectionStart: 4, scrollTop: 12, event: "input" }), "编辑器触发隐私页时会撤销第一次回车产生的多余换行");
 }
 
+function verifyPrivacyRandomizerHelpers(html, check) {
+  const constantsStart = html.indexOf("const PRIVACY_PAGE_PRESETS");
+  const constantsEnd = html.indexOf("const DIFFICULTY", constantsStart);
+  const helpersStart = html.indexOf("function privacyRandomIndex");
+  const helpersEnd = html.indexOf("function renderPrivacyPage", helpersStart);
+  check(constantsStart >= 0 && constantsEnd > constantsStart && helpersStart >= 0 && helpersEnd > helpersStart, "可提取隐私页随机内容模型");
+  const context = { clamp: (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value)) };
+  const script = `${html.slice(constantsStart, constantsEnd)}
+${html.slice(helpersStart, helpersEnd)}
+globalThis.transitions = PRIVACY_PAGE_PRESETS.map((_, previous) => [0, .5, 1].map((value) => nextPrivacyVariantIndex(previous, () => value)));
+globalThis.first = createPrivacyPageModel(-1, () => 0);
+globalThis.second = createPrivacyPageModel(0, () => 0);
+globalThis.last = createPrivacyPageModel(-1, () => 1);`;
+  new vm.Script(script, { filename: "privacy-randomizer.test.js" }).runInNewContext(context);
+  check(context.transitions.every((transitions, previous) => transitions.every((next) => next !== previous && next >= 0 && next < context.transitions.length)), "隐私页内容随机切换且不会连续使用同一模板");
+  check(context.first.variantIndex === 0 && context.second.variantIndex === 1 && context.last.variantIndex === 3
+    && context.first.preset.schedule.length === 4 && context.second.preset.schedule.length === 4, "隐私页包含四套完整日程模板并可覆盖随机边界");
+  check(context.first.completed === 8 && context.first.remaining === 3 && context.first.progress === 73
+    && context.first.note && context.first.progressLabel, "随机进度由完成数和待处理数一致计算");
+}
+
 function verifyEditorHelpers(html, check) {
-  const start = html.indexOf("function indentCodeSelection");
+  const start = html.indexOf('const EDITOR_INDENT = "    "');
   const end = html.indexOf("function base64FromBytes", start);
-  check(start >= 0 && end > start, "可提取代码缩进辅助函数");
+  check(start >= 0 && end > start, "可提取代码编辑辅助函数");
   const context = { Event: class Event { constructor(type) { this.type = type; } } };
-  const script = `const editor = {
-  value: "a\\nb\\n", selectionStart: 0, selectionEnd: 4,
+const script = `const editor = {
+  value: "a\\nb\\n", selectionStart: 0, selectionEnd: 4, selectionDirection: "none", dispatchCount: 0,
   setRangeText(text, start, end, mode) {
     this.value = this.value.slice(0, start) + text + this.value.slice(end);
     const cursor = mode === "end" ? start + text.length : start;
     this.selectionStart = cursor; this.selectionEnd = cursor;
   },
   setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; },
-  dispatchEvent() {},
+  dispatchEvent() { this.dispatchCount += 1; },
 };
 const elements = { code_editor: editor };
 ${html.slice(start, end)}
@@ -384,7 +434,32 @@ insertIndentedNewline();
 globalThis.nestedNewline = { value: editor.value, cursor: editor.selectionStart };
 editor.value = "    value = 1"; editor.selectionStart = editor.selectionEnd = editor.value.length;
 insertIndentedNewline();
-globalThis.inheritedNewline = { value: editor.value, cursor: editor.selectionStart };`;
+globalThis.inheritedNewline = { value: editor.value, cursor: editor.selectionStart };
+editor.value = "      value"; editor.selectionStart = editor.selectionEnd = 6;
+globalThis.sixSpaceBackspace = { handled: deleteCodeIndent(), value: editor.value, cursor: editor.selectionStart };
+editor.value = "\\t  value"; editor.selectionStart = editor.selectionEnd = 3;
+globalThis.tabBackspace = { handled: deleteCodeIndent(), value: editor.value, cursor: editor.selectionStart };
+editor.value = "    value"; editor.selectionStart = editor.selectionEnd = editor.value.length;
+globalThis.codeBackspace = { handled: deleteCodeIndent(), value: editor.value, cursor: editor.selectionStart };
+globalThis.bracketInsertions = Object.keys(EDITOR_BRACKET_PAIRS).map((opening) => {
+  editor.value = "call"; editor.selectionStart = editor.selectionEnd = editor.value.length;
+  insertCodeBracketPair(opening);
+  return { value: editor.value, cursor: editor.selectionStart };
+});
+editor.value = "left + right"; editor.selectionStart = 0; editor.selectionEnd = editor.value.length;
+insertCodeBracketPair("[");
+globalThis.wrappedSelection = { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd };
+editor.value = "items]"; editor.selectionStart = editor.selectionEnd = 5;
+globalThis.skippedClosing = { handled: skipCodeClosingBracket("]"), value: editor.value, cursor: editor.selectionStart };
+editor.value = "{}"; editor.selectionStart = editor.selectionEnd = 1;
+globalThis.deletedPair = { handled: deleteEmptyCodePair(), value: editor.value, cursor: editor.selectionStart };
+editor.value = "    "; editor.selectionStart = editor.selectionEnd = editor.value.length;
+globalThis.nonPairAtLineEnd = { handled: deleteEmptyCodePair(), value: editor.value, cursor: editor.selectionStart };
+editor.value = "name"; editor.selectionStart = editor.selectionEnd = 0;
+globalThis.blockedPair = { handled: insertCodeBracketPair("("), value: editor.value, cursor: editor.selectionStart };
+editor.value = "value"; editor.selectionStart = editor.selectionEnd = 0;
+const dispatchCountBeforeNoop = editor.dispatchCount;
+globalThis.noopOutdent = { handled: indentCodeSelection(true), dispatches: editor.dispatchCount - dispatchCountBeforeNoop };`;
   new vm.Script(script, { filename: "editor-helpers.test.js" }).runInNewContext(context);
   check(JSON.stringify(context.indented) === JSON.stringify({ value: "    a\n    b\n", start: 0, end: 12 })
     && JSON.stringify(context.outdented) === JSON.stringify({ value: "a\nb\n", start: 0, end: 4 }), "多行选择可缩进、反缩进且不会误选下一行");
@@ -394,10 +469,22 @@ globalThis.inheritedNewline = { value: editor.value, cursor: editor.selectionSta
     && JSON.stringify(context.uncommented) === JSON.stringify({ value: "if ok:\n    work()\n", start: 0, end: 18 }), "当前行或多行选择可切换 Python 注释并保持选择范围");
   check(JSON.stringify(context.nestedNewline) === JSON.stringify({ value: "    if ready: # note\n        ", cursor: 29 })
     && JSON.stringify(context.inheritedNewline) === JSON.stringify({ value: "    value = 1\n    ", cursor: 18 }), "回车会继承当前缩进并在冒号语句后增加一级缩进");
+  check(JSON.stringify(context.sixSpaceBackspace) === JSON.stringify({ handled: true, value: "    value", cursor: 4 })
+    && JSON.stringify(context.tabBackspace) === JSON.stringify({ handled: true, value: "\tvalue", cursor: 1 })
+    && JSON.stringify(context.codeBackspace) === JSON.stringify({ handled: false, value: "    value", cursor: 9 }), "退格仅在前导空白中删除到上一个四列制表位");
+  check(JSON.stringify(context.bracketInsertions) === JSON.stringify([
+    { value: "call()", cursor: 5 }, { value: "call[]", cursor: 5 }, { value: "call{}", cursor: 5 },
+  ]), "三类左括号会自动补齐并把光标留在中间");
+  check(JSON.stringify(context.wrappedSelection) === JSON.stringify({ value: "[left + right]", start: 1, end: 13 })
+    && JSON.stringify(context.skippedClosing) === JSON.stringify({ handled: true, value: "items]", cursor: 6 })
+    && JSON.stringify(context.deletedPair) === JSON.stringify({ handled: true, value: "", cursor: 0 })
+    && JSON.stringify(context.nonPairAtLineEnd) === JSON.stringify({ handled: false, value: "    ", cursor: 4 })
+    && JSON.stringify(context.blockedPair) === JSON.stringify({ handled: false, value: "name", cursor: 0 }), "括号补全支持包裹选区、越过右括号、成对删除和安全插入边界");
+  check(JSON.stringify(context.noopOutdent) === JSON.stringify({ handled: false, dispatches: 0 }), "无可移除缩进时不会触发输入与保存事件");
 }
 
 function verifySyntaxHighlighting(html, check) {
-  const start = html.indexOf("const PYTHON_KEYWORDS");
+  const start = html.indexOf('const EDITOR_INDENT = "    "');
   const end = html.indexOf("function updateCodeHighlight", start);
   check(start >= 0 && end > start, "可提取 Python 语法高亮函数");
   const context = {
@@ -406,12 +493,39 @@ function verifySyntaxHighlighting(html, check) {
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '\"': "&quot;",
     })[character]),
   };
-  const script = `${html.slice(start, end)}\nglobalThis.highlighted = highlightPython(sample);`;
+  const script = `${html.slice(start, end)}\nglobalThis.highlighted = highlightPython(sample);\nglobalThis.guided = highlightPython("  x\\n    y\\n        z");`;
   new vm.Script(script, { filename: "syntax-highlighting.test.js" }).runInNewContext(context);
   const highlighted = context.highlighted;
   check(["py-decorator", "py-keyword", "py-definition", "py-self", "py-string", "py-comment", "py-builtin", "py-number", "py-operator"]
     .every((className) => highlighted.includes(`class="${className}"`)), "Python 高亮覆盖装饰器、关键词、定义、字符串、注释、内置函数、数字和运算符");
   check(highlighted.includes("&lt;safe&gt;") && !highlighted.includes("<safe>") && (highlighted.match(/py-comment/g) || []).length === 1, "语法高亮会转义代码且不会把字符串中的井号识别为注释");
+  check((context.guided.match(/class="py-indent-guide"/g) || []).length === 3
+    && context.guided.replace(/<span class="py-indent-guide">|<\/span>/g, "") === "  x\n    y\n        z", "缩进引导线按完整四列层级绘制且不改变高亮文本宽度");
+}
+
+function verifyFormatterUiHelpers(html, check) {
+  const start = html.indexOf("function codePositionAtOffset");
+  const end = html.indexOf("function setEvaluationBusy", start);
+  check(start >= 0 && end > start, "可提取格式化光标映射函数");
+  const context = { clamp: (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value)) };
+  const script = `${html.slice(start, end)}
+const source = "ab\\ncdef";
+globalThis.position = codePositionAtOffset(source, 5);
+globalThis.offset = codeOffsetAtPosition(source, { line: 2, column: 3 });
+globalThis.clampedOffset = codeOffsetAtPosition(source, { line: 99, column: 99 });
+const editor = { value: "after", selectionStart: 5, selectionEnd: 5, selectionDirection: "none", setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; } };
+const elements = { code_editor: editor };
+let currentSlug = "first";
+let lastFormatChange = { slug: "first", before: "before", after: "after", beforeSelection: { start: 2, end: 2 }, afterSelection: { start: 5, end: 5 }, undone: false };
+const notifyCodeInput = () => {};
+const syncCurrentEditors = () => {};
+const toast = () => {};
+globalThis.undoResult = { handled: restoreLastCodeFormat(false), code: editor.value, cursor: editor.selectionStart, undone: lastFormatChange.undone };
+globalThis.redoResult = { handled: restoreLastCodeFormat(true), code: editor.value, cursor: editor.selectionStart, undone: lastFormatChange.undone };`;
+  new vm.Script(script, { filename: "formatter-ui.test.js" }).runInNewContext(context);
+  check(JSON.stringify(context.position) === JSON.stringify({ line: 2, column: 3 }) && context.offset === 5 && context.clampedOffset === 7, "格式化前后的光标行列可映射并安全限制到代码范围");
+  check(JSON.stringify(context.undoResult) === JSON.stringify({ handled: true, code: "before", cursor: 2, undone: true })
+    && JSON.stringify(context.redoResult) === JSON.stringify({ handled: true, code: "after", cursor: 5, undone: false }), "最近一次 Black 格式化支持撤销与重做并恢复对应光标");
 }
 
 async function testPyodide() {
@@ -424,7 +538,21 @@ async function testPyodide() {
     const output = await pyodide.runPythonAsync(`${pythonHarness}\nRESULT_JSON`);
     if (!JSON.parse(output).passed) throw new Error(`${slug} 在内嵌 Python 运行时中未通过`);
   }
+  const formatterBundle = await loadFormatterBundle();
+  pyodide.globals.set("formatter_bundle_json", JSON.stringify(formatterBundle));
+  pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
+  pyodide.globals.set("formatter_source", "def add( a,b):\n return(a+b)\n");
+  const formatted = JSON.parse(await pyodide.runPythonAsync(`${pythonFormatter}\nFORMAT_RESULT_JSON`));
+  if (!formatted.ok || formatted.version !== formatterBundle.version || formatted.code !== "def add(a, b):\n    return a + b\n") {
+    throw new Error(`Black 格式化测试失败：${JSON.stringify(formatted)}`);
+  }
+  pyodide.globals.set("formatter_source", "def broken(:\n pass");
+  const invalid = JSON.parse(await pyodide.runPythonAsync(`${pythonFormatter}\nFORMAT_RESULT_JSON`));
+  if (invalid.ok || invalid.kind !== "syntax" || invalid.line !== 1 || invalid.column !== 11) {
+    throw new Error(`Black 语法错误定位测试失败：${JSON.stringify(invalid)}`);
+  }
   console.log(`PASS Pyodide ${pyodide.runPython("import sys; sys.version.split()[0]")} 与 ${slugs.length} 类题型`);
+  console.log(`PASS Black ${formatted.version} 离线格式化与语法错误定位`);
 }
 
 async function testMemoryRuntime() {
@@ -477,6 +605,12 @@ async function testMemoryRuntime() {
     });
     const answer = pyodide.runPython("sum(i * i for i in range(10))");
     if (answer !== 285) throw new Error(`内存兼容模式结果异常：${answer}`);
+    const formatterBundle = await loadFormatterBundle();
+    pyodide.globals.set("formatter_bundle_json", JSON.stringify(formatterBundle));
+    pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
+    pyodide.globals.set("formatter_source", "values=[1,2,3]\n");
+    const formatted = JSON.parse(await pyodide.runPythonAsync(`${pythonFormatter}\nFORMAT_RESULT_JSON`));
+    if (!formatted.ok || formatted.code !== "values = [1, 2, 3]\n") throw new Error(`兼容模式格式化异常：${JSON.stringify(formatted)}`);
     originalProcess.stdout.write(`PASS 内存兼容模式 Python ${pyodide.runPython("import sys; sys.version.split()[0]")}\n`);
     originalProcess.exit(0);
   } catch (error) {
@@ -513,7 +647,7 @@ async function verifyArtifact(html) {
   check(Object.values(solutions).every((solution) => typeof solution.code === "string" && solution.code.trim() && Array.isArray(solution.tests) && solution.tests.length), "每份题解都有代码和测试用例");
   check(problems.every((problem) => !/<img\b[^>]*\bsrc=["'](?:https?:)?\/\//i.test(problem.content)), "题目快照没有外部图片");
   check(Object.keys(lock.packages || {}).length === 0, "Pyodide 锁文件只保留必要元数据");
-  check(!/__PROBLEMS_JSON__|__SOLUTIONS_JSON__|__PYODIDE_[A-Z0-9_]+__|__APP_SCRIPT__|__STYLES__/.test(html), "构建占位符已全部替换");
+  check(!/__[A-Z][A-Z0-9_]+__/.test(html), "构建占位符已全部替换");
   check(!/<script\b[^>]*\bsrc\s*=/i.test(html), "没有外部脚本依赖");
   check(!/<link\b[^>]*\brel=["']?stylesheet/i.test(html), "没有外部样式表依赖");
   check(!/<(?:img|video|audio|source)\b[^>]*\bsrc=["']https?:\/\//i.test(html), "没有外部媒体资源依赖");
@@ -523,14 +657,18 @@ async function verifyArtifact(html) {
   const staticHtml = html.slice(0, html.indexOf("<script>"));
   const htmlIds = [...staticHtml.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
+  check(!staticHtml.includes("-webkit-") && !html.includes("document.execCommand") && !html.includes('addEventListener("beforeunload"'), "已移除私有样式、废弃剪贴板接口与无效卸载监听");
   check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
-  check(html.includes("const STATE_VERSION = 3") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且旧版设置可迁移");
-  check(html.includes('id="pane-resizer"') && html.includes("setProblemPaneWidth") && html.includes("problemPaneWidth: 43"), "题目和代码分栏支持调整宽度并持久化");
+  check(!html.includes("const STATE_VERSION") && html.includes("const DEFAULT_SETTINGS") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且状态设置使用单一规范化路径");
+  check(html.includes('id="pane-resizer"') && html.includes("function constrainedProblemPaneWidth") && html.includes("setProblemPaneWidth") && html.includes("PROBLEM_PANE_DEFAULT = 43"), "题目和代码分栏支持统一约束、调整宽度并持久化");
   check(html.includes('id="catalog-result-count"') && html.includes("mobileWorkspaceMedia"), "目录筛选和移动端单屏工作区完整");
-  check(html.includes('id="code-highlight"') && html.includes("function highlightPython") && html.includes("function updateCodeHighlight"), "代码编辑器包含离线 Python 语法高亮层");
-  check(html.includes("function indentCodeSelection") && html.includes("function toggleCodeComment") && html.includes("function insertIndentedNewline") && html.includes('event.key.toLowerCase() === "s"'), "代码编辑器支持块级缩进、切换注释、回车缩进与快捷保存");
-  check(html.includes('id="privacy-view"') && html.includes('document.title = "每日工作台"') && html.includes("setPrivacyMode(!privacyMode)"), "双击回车可切换独立隐私伪装页并隐藏真实标题");
+  check(html.includes('id="code-highlight"') && html.includes("function highlightPython") && html.includes("function updateCodeHighlight") && html.includes("py-indent-guide"), "代码编辑器包含离线 Python 语法高亮层与缩进引导线");
+  check(html.includes("function indentCodeSelection") && html.includes("function deleteCodeIndent") && html.includes("function insertCodeBracketPair") && html.includes("function toggleCodeComment") && html.includes("function insertIndentedNewline") && html.includes('event.key.toLowerCase() === "s"'), "代码编辑器支持智能缩进、括号补全、切换注释、回车缩进与快捷保存");
+  check(html.includes('id="format-code-button"') && html.includes("function formatCurrentCode") && html.includes("function restoreLastCodeFormat") && html.includes('event.key.toLowerCase() === "f"') && html.includes("formatPythonSource"), "代码编辑器支持按钮和快捷键触发整文件格式化及撤销重做");
+  check(html.includes("black.format_file_contents") && html.includes("fast=False") && formatterManifest.packages.every(({ filename }) => html.includes(filename)), "Black 及校验过的纯 Python 依赖已完整内嵌");
+  check(html.includes("第 ${result.line} 行、第 ${result.column} 列附近存在语法错误") && html.includes("codeOffsetAtPosition"), "格式化语法错误会定位具体行列且不会覆盖原代码");
+  check(html.includes('id="privacy-view"') && html.includes("function createPrivacyPageModel") && html.includes("const privacyDocumentTitle = renderPrivacyPage()") && html.includes("setPrivacyMode(!privacyMode)"), "双击回车可切换随机内容的独立隐私伪装页并隐藏真实标题");
   check(!html.includes("`${problem.frontendId}. ${problem.title} · Python 离线训练场`") && html.includes('document.title = "Python 离线训练场"'), "浏览器标签始终使用固定的训练场标题");
   check(html.includes('[data-theme="dark"] .privacy-view') && html.includes("--privacy-bg-top") && html.includes("--privacy-card"), "隐私伪装页会跟随当前深色或浅色主题");
   check(html.includes('history.replaceState(history.state, "", location.href.split("#")[0])') && html.includes("privacyRestoreHash"), "隐私伪装页会隐藏并恢复地址栏题目标识");
@@ -542,6 +680,7 @@ async function verifyArtifact(html) {
   check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
   check(html.includes("prewarmJudge()") && html.includes("Python 运行时已内置，将自动准备"), "Python 运行时自动预热");
+  check(html.includes("function revokeRuntimeObjectUrls") && html.includes("revokeRuntimeObjectUrls();"), "运行时 Blob URL 会在初始化完成或失败后及时释放");
   check(html.includes("startMainThreadJudge") && !html.includes('new Worker(workerUrl, { type: "module"'), "包含 file:// 兼容回退");
   check(html.includes("new Function(`${loaderSource}") && html.includes("new Response(runtime.wasmBytes"), "兼容模式从内存启动 Python");
   check(Buffer.byteLength(html) > 15 * 1024 * 1024, "Python、题面和图片已打包进单文件");
@@ -552,8 +691,10 @@ async function verifyArtifact(html) {
   verifyExportHelpers(html, check);
   verifyStateHelpers(html, check);
   verifyPrivacyShortcutHelpers(html, check);
+  verifyPrivacyRandomizerHelpers(html, check);
   verifyEditorHelpers(html, check);
   verifySyntaxHighlighting(html, check);
+  verifyFormatterUiHelpers(html, check);
   const difficultyCounts = problems.reduce((counts, problem) => {
     counts[problem.difficulty] = (counts[problem.difficulty] || 0) + 1;
     return counts;
