@@ -239,6 +239,8 @@ body.privacy-mode > :not(.privacy-view) { display: none !important; }
 .button.primary:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
 .button.success { color: white; border-color: var(--green); background: var(--green); }
 .button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.button.danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 28%, var(--line)); background: var(--red-soft); }
+.button.danger:hover { border-color: color-mix(in srgb, var(--red) 48%, var(--line)); background: color-mix(in srgb, var(--red) 14%, var(--surface)); }
 .button:disabled { opacity: .52; cursor: not-allowed; transform: none; }
 .icon-button { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-size: 17px; }
 
@@ -612,6 +614,7 @@ body.resizing-panes, body.resizing-panes * { cursor: col-resize !important; user
   box-shadow: var(--shadow);
 }
 .modal-icon { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 16px; color: var(--accent); border-radius: 12px; background: var(--accent-soft); font-size: 20px; font-weight: 800; }
+.modal-icon.danger { color: var(--red); background: var(--red-soft); }
 .modal-card h2 { margin: 0; font-size: 21px; }
 .modal-card > p { margin: 10px 0 20px; color: var(--muted); line-height: 1.7; }
 .option-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-2); cursor: pointer; }
@@ -787,6 +790,7 @@ body.modal-open { overflow: hidden; }
           </select>
           <span id="catalog-result-count" class="catalog-result-count" aria-live="polite">共 100 道</span>
           <button id="clear-filter-button" class="button ghost" type="button">清除筛选</button>
+          <button id="reset-progress-button" class="button danger" type="button" title="将全部题目恢复为未开始，保留代码和笔记">重置进度</button>
         </section>
 
         <div id="category-grid" class="category-grid"></div>
@@ -879,6 +883,18 @@ body.modal-open { overflow: hidden; }
       <div class="modal-actions">
         <button id="export-cancel-button" class="button ghost" type="button">取消</button>
         <button id="export-confirm-button" class="button primary" type="button">导出表格</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="reset-progress-modal" class="modal-overlay hidden" role="presentation" aria-hidden="true">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-progress-modal-title" aria-describedby="reset-progress-description">
+      <div class="modal-icon danger" aria-hidden="true">↺</div>
+      <h2 id="reset-progress-modal-title">重置全部学习进度？</h2>
+      <p id="reset-progress-description">所有题目会恢复为未开始，累计提交次数也会清零。个人代码、笔记和自定义样例不会删除。</p>
+      <div class="modal-actions">
+        <button id="reset-progress-cancel-button" class="button ghost" type="button">取消</button>
+        <button id="reset-progress-confirm-button" class="button danger" type="button">确认重置</button>
       </div>
     </section>
   </div>
@@ -1034,7 +1050,7 @@ const ELEMENT_IDS = [
   "privacy-title", "privacy-summary", "privacy-schedule-title", "privacy-schedule", "privacy-note", "privacy-progress-label",
   "privacy-progress-percent", "privacy-progress-track", "privacy-progress-detail", "workspace-tabs",
   "catalog-view", "study-view", "category-grid", "search-input",
-  "difficulty-filter", "status-filter", "clear-filter-button", "catalog-result-count", "solved-count",
+  "difficulty-filter", "status-filter", "clear-filter-button", "reset-progress-button", "catalog-result-count", "solved-count",
   "attempted-count", "noted-count", "submission-count", "progress-number", "progress-orbit",
   "continue-button", "random-button", "auto-expand-button", "import-button", "export-button", "theme-button",
   "markdown-file-input", "toast-stack", "back-button", "previous-button", "next-button",
@@ -1044,6 +1060,7 @@ const ELEMENT_IDS = [
   "cursor-position", "runtime-status", "custom-case-button", "run-button", "submit-button", "result-panel",
   "solution-note", "solution-complexity", "reference-code", "copy-solution-button",
   "export-modal", "export-code-checkbox", "export-cancel-button", "export-confirm-button",
+  "reset-progress-modal", "reset-progress-description", "reset-progress-cancel-button", "reset-progress-confirm-button",
   "custom-case-modal", "custom-case-template", "custom-case-list", "custom-case-add-button",
   "custom-case-cancel-button", "custom-case-save-button",
 ];
@@ -1340,6 +1357,55 @@ function statistics() {
   return { solved, attempted, noted, submissions };
 }
 
+function recordHasProgress(record) {
+  return Boolean(record) && (["attempted", "solved"].includes(record.status)
+    || Number(record.attempts || 0) > 0
+    || Boolean(record.passedAt));
+}
+
+function progressRecordCount(records) {
+  return PROBLEMS.reduce((count, problem) => count + Number(recordHasProgress(records[problem.slug])), 0);
+}
+
+function resetProgressRecords(records, updatedAt = new Date().toISOString()) {
+  let resetCount = 0;
+  for (const problem of PROBLEMS) {
+    const record = records[problem.slug];
+    if (!recordHasProgress(record)) continue;
+    record.status = "todo";
+    record.attempts = 0;
+    record.passedAt = null;
+    record.updatedAt = updatedAt;
+    resetCount += 1;
+  }
+  return resetCount;
+}
+
+function openResetProgressModal() {
+  const count = progressRecordCount(state.records);
+  if (!count) return toast("当前没有需要重置的学习进度");
+  elements.reset_progress_description.textContent = `将把 ${count} 道有进度的题目恢复为未开始，并把累计提交次数清零。个人代码、笔记和自定义样例不会删除。`;
+  showModal(elements.reset_progress_modal, () => elements.reset_progress_cancel_button);
+}
+
+function closeResetProgressModal() {
+  hideModal(elements.reset_progress_modal, elements.reset_progress_button);
+}
+
+function confirmResetProgress() {
+  const resetCount = resetProgressRecords(state.records);
+  closeResetProgressModal();
+  if (!resetCount) return toast("当前没有需要重置的学习进度");
+  saveState(true);
+  renderCatalog();
+  if (currentSlug) {
+    updateMasteredButton();
+    elements.result_panel.className = "result-panel";
+    elements.result_panel.innerHTML = "";
+  }
+  toast(`已将 ${resetCount} 道题恢复为未开始，累计提交已清零`);
+}
+
 function renderSummary() {
   const stats = statistics();
   elements.solved_count.textContent = stats.solved;
@@ -1349,6 +1415,7 @@ function renderSummary() {
   const percent = Math.round(stats.solved / PROBLEMS.length * 100);
   elements.progress_number.textContent = `${percent}%`;
   elements.progress_orbit.style.setProperty("--progress", `${percent * 3.6}deg`);
+  elements.reset_progress_button.disabled = progressRecordCount(state.records) === 0;
   const last = bySlug.get(state.settings.lastSlug)?.problem || PROBLEMS[0];
   elements.continue_button.textContent = stats.solved || stats.attempted ? `继续：${last.frontendId}. ${last.title}` : "从第一题开始";
 }
@@ -1667,7 +1734,9 @@ function setPrivacyMode(enabled) {
     return;
   }
   document.body.classList.remove("privacy-mode");
-  const modalOpen = !elements.custom_case_modal.classList.contains("hidden") || !elements.export_modal.classList.contains("hidden");
+  const modalOpen = !elements.custom_case_modal.classList.contains("hidden")
+    || !elements.export_modal.classList.contains("hidden")
+    || !elements.reset_progress_modal.classList.contains("hidden");
   document.body.classList.toggle("modal-open", modalOpen);
   elements.app_header.inert = modalOpen;
   elements.app_main.inert = modalOpen;
@@ -2903,6 +2972,10 @@ elements.export_confirm_button.addEventListener("click", () => {
   exportMarkdown(includeCode);
 });
 elements.export_modal.addEventListener("click", (event) => { if (event.target === elements.export_modal) closeExportModal(); });
+elements.reset_progress_button.addEventListener("click", openResetProgressModal);
+elements.reset_progress_cancel_button.addEventListener("click", closeResetProgressModal);
+elements.reset_progress_confirm_button.addEventListener("click", confirmResetProgress);
+elements.reset_progress_modal.addEventListener("click", (event) => { if (event.target === elements.reset_progress_modal) closeResetProgressModal(); });
 elements.import_button.addEventListener("click", () => elements.markdown_file_input.click());
 elements.markdown_file_input.addEventListener("change", async () => {
   const file = elements.markdown_file_input.files[0];
@@ -2917,7 +2990,8 @@ elements.markdown_file_input.addEventListener("change", async () => {
   } catch (error) { toast(error.message || "Markdown 导入失败", "error"); }
 });
 elements.theme_button.addEventListener("click", () => { applyTheme(state.settings.theme === "dark" ? "light" : "dark"); saveState(); });
-[elements.custom_case_modal, elements.export_modal].forEach((modal) => modal.addEventListener("keydown", (event) => trapModalFocus(modal, event)));
+[elements.custom_case_modal, elements.export_modal, elements.reset_progress_modal]
+  .forEach((modal) => modal.addEventListener("keydown", (event) => trapModalFocus(modal, event)));
 elements.pane_resizer.addEventListener("pointerdown", (event) => {
   if (mobileWorkspaceMedia.matches || elements.study_view.classList.contains("problem-collapsed")) return;
   paneResizePointerId = event.pointerId;
@@ -2973,6 +3047,7 @@ document.addEventListener("keydown", (event) => {
     if (privacyMode) return;
     if (!elements.custom_case_modal.classList.contains("hidden")) closeCustomCaseModal();
     else if (!elements.export_modal.classList.contains("hidden")) closeExportModal();
+    else if (!elements.reset_progress_modal.classList.contains("hidden")) closeResetProgressModal();
     else if (elements.result_panel.classList.contains("open")) {
       elements.result_panel.classList.remove("open");
       elements.code_editor.focus();

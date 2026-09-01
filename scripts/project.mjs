@@ -337,6 +337,26 @@ globalThis.valid = normalizeSettings({ theme: "light", editorSize: 16, lastSlug:
   new vm.Script(settingsScript, { filename: "state-settings.test.js" }).runInNewContext(settingsContext);
   check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "损坏的界面设置会回退到默认展开题面和分栏宽度");
   check(JSON.stringify(settingsContext.valid) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 }), "有效界面设置会直接保留且不再经过旧版迁移分支");
+
+  const progressStart = html.indexOf("function recordHasProgress", loadStateStart);
+  const summaryStart = html.indexOf("function renderSummary", progressStart);
+  check(progressStart >= 0 && summaryStart > progressStart, "可提取学习进度重置函数");
+  const progressContext = { PROBLEMS: [{ slug: "solved" }, { slug: "attempted" }, { slug: "untouched" }] };
+  const progressScript = `${html.slice(progressStart, summaryStart)}
+const records = {
+  solved: { status: "solved", attempts: 3, passedAt: "old-pass", updatedAt: "old-update", code: "print(1)", note: "keep", customCases: ["[1]"] },
+  attempted: { status: "attempted", attempts: 0, passedAt: null, updatedAt: "old-attempt", note: "also keep" },
+  untouched: { status: "todo", attempts: 0, passedAt: null, updatedAt: "unchanged", code: "value = 1" },
+};
+globalThis.before = progressRecordCount(records);
+globalThis.resetCount = resetProgressRecords(records, "reset-at");
+globalThis.after = progressRecordCount(records);
+globalThis.records = records;`;
+  new vm.Script(progressScript, { filename: "state-progress-reset.test.js" }).runInNewContext(progressContext);
+  check(progressContext.before === 2 && progressContext.resetCount === 2 && progressContext.after === 0, "学习进度重置会覆盖已通过、进行中和累计提交状态");
+  check(JSON.stringify(progressContext.records.solved) === JSON.stringify({ status: "todo", attempts: 0, passedAt: null, updatedAt: "reset-at", code: "print(1)", note: "keep", customCases: ["[1]"] })
+    && JSON.stringify(progressContext.records.attempted) === JSON.stringify({ status: "todo", attempts: 0, passedAt: null, updatedAt: "reset-at", note: "also keep" })
+    && JSON.stringify(progressContext.records.untouched) === JSON.stringify({ status: "todo", attempts: 0, passedAt: null, updatedAt: "unchanged", code: "value = 1" }), "重置进度会保留代码、笔记、自定义样例和原本未开始的记录");
 }
 
 function verifyPrivacyShortcutHelpers(html, check) {
@@ -675,6 +695,7 @@ async function verifyArtifact(html) {
   check(html.includes("privacyRestoreScrollX") && html.includes("window.scrollTo(privacyRestoreScrollX, privacyRestoreScrollY)") && html.includes("elements.privacy_view.inert = true"), "隐私伪装页会恢复滚动位置并隔离不可见区域焦点");
   check(html.includes('role="tablist"') && html.includes('role="tabpanel"') && html.includes('event.key === "ArrowRight"'), "工作区标签支持完整语义与方向键导航");
   check(html.includes("function trapModalFocus") && html.includes('modal.setAttribute("aria-hidden", "false")'), "弹窗会维护可访问状态并限制键盘焦点");
+  check(html.includes('id="reset-progress-button"') && html.includes('id="reset-progress-modal"') && html.includes("function resetProgressRecords") && html.includes("个人代码、笔记和自定义样例不会删除"), "目录支持确认后一键重置全部提交进度且保留个人内容");
   check(html.includes("const savePulseTimers = new WeakMap()") && html.includes('document.visibilityState === "hidden"') && html.includes('window.addEventListener("pagehide"'), "保存提示去抖且页面进入后台时立即持久化");
   check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>') && html.includes('id="custom-case-button"'), "运行与提交操作支持添加自定义样例");
   check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
