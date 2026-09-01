@@ -1039,7 +1039,7 @@ const problemsByCategory = new Map(categories.map((category) => [
 ]));
 const searchTextBySlug = new Map(PROBLEMS.map((problem) => [
   problem.slug,
-  [problem.frontendId, problem.title, problem.englishTitle, problem.category, ...(problem.tags || [])]
+  [problem.frontendId, problem.title, problem.englishTitle, problem.category, ...problem.tags]
     .join(" ")
     .toLowerCase(),
 ]));
@@ -1101,22 +1101,25 @@ function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
-function blankState() {
-  return {
-    records: {},
-    settings: { ...DEFAULT_SETTINGS },
-  };
+function timestamp() {
+  return new Date().toISOString();
+}
+
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function normalizeRecord(value) {
-  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const raw = plainObject(value) || {};
+  const attempts = Number.isInteger(raw.attempts) && raw.attempts >= 0 ? raw.attempts : 0;
+  let status = VALID_STATUSES.has(raw.status) ? raw.status : "todo";
+  if (status === "todo" && attempts > 0) status = "attempted";
   const record = {
-    ...EMPTY_RECORD,
-    status: VALID_STATUSES.has(raw.status) ? raw.status : "todo",
-    attempts: Number.isInteger(raw.attempts) && raw.attempts >= 0 ? raw.attempts : 0,
+    status,
+    attempts,
     note: typeof raw.note === "string" ? raw.note : "",
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
-    passedAt: typeof raw.passedAt === "string" ? raw.passedAt : null,
+    passedAt: status === "solved" && typeof raw.passedAt === "string" ? raw.passedAt : null,
   };
   if (typeof raw.code === "string") record.code = raw.code;
   if (Array.isArray(raw.customCases)) {
@@ -1128,7 +1131,7 @@ function normalizeRecord(value) {
 }
 
 function normalizeSettings(value) {
-  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const raw = plainObject(value) || {};
   return {
     theme: ["light", "dark"].includes(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
     editorSize: Number.isFinite(raw.editorSize) ? clamp(Math.round(raw.editorSize), EDITOR_SIZE_MIN, EDITOR_SIZE_MAX) : DEFAULT_SETTINGS.editorSize,
@@ -1139,7 +1142,7 @@ function normalizeSettings(value) {
 }
 
 function loadState() {
-  const fallback = blankState();
+  const fallback = { records: {}, settings: { ...DEFAULT_SETTINGS } };
   let raw;
   try {
     const testKey = `${STORAGE_KEY}:test`;
@@ -1154,8 +1157,8 @@ function loadState() {
   if (!raw) return fallback;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("状态根节点必须是对象");
-    const rawRecords = parsed.records && typeof parsed.records === "object" && !Array.isArray(parsed.records) ? parsed.records : {};
+    if (!plainObject(parsed)) throw new Error("状态根节点必须是对象");
+    const rawRecords = plainObject(parsed.records) || {};
     const records = {};
     for (const problem of PROBLEMS) {
       if (Object.hasOwn(rawRecords, problem.slug)) records[problem.slug] = normalizeRecord(rawRecords[problem.slug]);
@@ -1194,7 +1197,7 @@ function recordFor(slug, create = true) {
 
 function customCasesFor(slug = currentSlug) {
   const cases = slug ? recordFor(slug, false).customCases : null;
-  return Array.isArray(cases) ? cases.slice(0, MAX_CUSTOM_CASES) : [];
+  return Array.isArray(cases) ? cases : [];
 }
 
 function customCaseTemplateFor(slug = currentSlug) {
@@ -1301,7 +1304,7 @@ function saveCustomCases() {
   }
   const record = recordFor(currentSlug);
   record.customCases = normalized;
-  record.updatedAt = new Date().toISOString();
+  record.updatedAt = timestamp();
   saveState(true);
   updateCustomCaseButton();
   closeCustomCaseModal();
@@ -1309,8 +1312,7 @@ function saveCustomCases() {
 }
 
 function statusFor(slug) {
-  const status = recordFor(slug, false).status;
-  return VALID_STATUSES.has(status) ? status : "todo";
+  return recordFor(slug, false).status;
 }
 
 function escapeHtml(value) {
@@ -1328,20 +1330,18 @@ function toast(message, type = "info") {
 }
 
 function applyTheme(theme) {
-  const resolved = theme === "dark" ? "dark" : "light";
-  document.documentElement.dataset.theme = resolved;
-  state.settings.theme = resolved;
-  const label = resolved === "dark" ? "切换浅色模式" : "切换深色模式";
+  document.documentElement.dataset.theme = theme;
+  state.settings.theme = theme;
+  const label = theme === "dark" ? "切换浅色模式" : "切换深色模式";
   elements.theme_button.setAttribute("aria-label", label);
   elements.theme_button.title = label;
 }
 
 function applyProblemExpansionPreference(enabled, persist = true) {
-  const expanded = enabled === true;
-  state.settings.expandProblemByDefault = expanded;
-  elements.auto_expand_button.setAttribute("aria-checked", String(expanded));
-  elements.auto_expand_button.title = expanded ? "进入题目时默认展开题面" : "进入题目时默认收起题面";
-  if (currentSlug) setProblemPaneCollapsed(!expanded);
+  state.settings.expandProblemByDefault = enabled;
+  elements.auto_expand_button.setAttribute("aria-checked", String(enabled));
+  elements.auto_expand_button.title = enabled ? "进入题目时默认展开题面" : "进入题目时默认收起题面";
+  if (currentSlug) setProblemPaneCollapsed(!enabled);
   if (persist) saveState();
 }
 
@@ -1351,27 +1351,17 @@ function statistics() {
     const record = recordFor(problem.slug, false);
     if (record.status === "solved") solved += 1;
     else if (record.status === "attempted") attempted += 1;
-    if ((record.note || "").trim()) noted += 1;
-    submissions += Number(record.attempts || 0);
+    if (record.note.trim()) noted += 1;
+    submissions += record.attempts;
   }
-  return { solved, attempted, noted, submissions };
+  return { solved, attempted, noted, submissions, progress: solved + attempted };
 }
 
-function recordHasProgress(record) {
-  return Boolean(record) && (["attempted", "solved"].includes(record.status)
-    || Number(record.attempts || 0) > 0
-    || Boolean(record.passedAt));
-}
-
-function progressRecordCount(records) {
-  return PROBLEMS.reduce((count, problem) => count + Number(recordHasProgress(records[problem.slug])), 0);
-}
-
-function resetProgressRecords(records, updatedAt = new Date().toISOString()) {
+function resetProgressRecords(records, updatedAt = timestamp()) {
   let resetCount = 0;
   for (const problem of PROBLEMS) {
     const record = records[problem.slug];
-    if (!recordHasProgress(record)) continue;
+    if (!record || record.status === "todo") continue;
     record.status = "todo";
     record.attempts = 0;
     record.passedAt = null;
@@ -1382,7 +1372,7 @@ function resetProgressRecords(records, updatedAt = new Date().toISOString()) {
 }
 
 function openResetProgressModal() {
-  const count = progressRecordCount(state.records);
+  const count = statistics().progress;
   if (!count) return toast("当前没有需要重置的学习进度");
   elements.reset_progress_description.textContent = `将把 ${count} 道有进度的题目恢复为未开始，并把累计提交次数清零。个人代码、笔记和自定义样例不会删除。`;
   showModal(elements.reset_progress_modal, () => elements.reset_progress_cancel_button);
@@ -1415,8 +1405,8 @@ function renderSummary() {
   const percent = Math.round(stats.solved / PROBLEMS.length * 100);
   elements.progress_number.textContent = `${percent}%`;
   elements.progress_orbit.style.setProperty("--progress", `${percent * 3.6}deg`);
-  elements.reset_progress_button.disabled = progressRecordCount(state.records) === 0;
-  const last = bySlug.get(state.settings.lastSlug)?.problem || PROBLEMS[0];
+  elements.reset_progress_button.disabled = stats.progress === 0;
+  const last = bySlug.get(state.settings.lastSlug).problem;
   elements.continue_button.textContent = stats.solved || stats.attempted ? `继续：${last.frontendId}. ${last.title}` : "从第一题开始";
 }
 
@@ -1427,7 +1417,7 @@ function matchesFilter(problem) {
   const record = recordFor(problem.slug, false);
   if (keyword && !searchTextBySlug.get(problem.slug).includes(keyword)) return false;
   if (difficulty !== "all" && problem.difficulty !== difficulty) return false;
-  if (status === "noted" && !(record.note || "").trim()) return false;
+  if (status === "noted" && !record.note.trim()) return false;
   if (!["all", "noted"].includes(status) && statusFor(problem.slug) !== status) return false;
   return true;
 }
@@ -1563,11 +1553,11 @@ function openProblem(slug, updateHash = true) {
   elements.previous_button.disabled = index === 0;
   elements.next_button.disabled = index === PROBLEMS.length - 1;
   const difficulty = DIFFICULTY[problem.difficulty];
-  elements.problem_kicker.innerHTML = `<span class="difficulty ${difficulty.className}">${difficulty.label}</span><span class="tag">${escapeHtml(problem.category)}</span>${(problem.tags || []).slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}`;
+  elements.problem_kicker.innerHTML = `<span class="difficulty ${difficulty.className}">${difficulty.label}</span><span class="tag">${escapeHtml(problem.category)}</span>${problem.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}`;
   elements.official_content.innerHTML = officialContentFor(problem);
   elements.code_editor.value = record.code ?? problem.starterCode;
   updateCodeHighlight();
-  elements.notes_editor.value = record.note || "";
+  elements.notes_editor.value = record.note;
   elements.solution_note.textContent = solution.note;
   elements.solution_complexity.textContent = solution.complexity;
   elements.reference_code.textContent = solution.code;
@@ -1734,9 +1724,7 @@ function setPrivacyMode(enabled) {
     return;
   }
   document.body.classList.remove("privacy-mode");
-  const modalOpen = !elements.custom_case_modal.classList.contains("hidden")
-    || !elements.export_modal.classList.contains("hidden")
-    || !elements.reset_progress_modal.classList.contains("hidden");
+  const modalOpen = Boolean(activeModalController());
   document.body.classList.toggle("modal-open", modalOpen);
   elements.app_header.inert = modalOpen;
   elements.app_main.inert = modalOpen;
@@ -1762,7 +1750,7 @@ function route() {
     try {
       const slug = decodeURIComponent(match[1]);
       if (bySlug.has(slug)) return openProblem(slug, false);
-    } catch (error) {
+    } catch {
       // Treat malformed hashes as the catalog route.
     }
   }
@@ -1794,7 +1782,7 @@ function updateCurrentRecord(values, immediate = false) {
     record[key] = value;
     changed = true;
   }
-  if (changed) record.updatedAt = new Date().toISOString();
+  if (changed) record.updatedAt = timestamp();
   saveState(immediate);
 }
 
@@ -1836,8 +1824,7 @@ function updateCursorPosition() {
 }
 
 function changeEditorSize(delta, persist = true) {
-  const currentSize = Number(state.settings.editorSize);
-  const size = clamp((Number.isFinite(currentSize) ? currentSize : DEFAULT_SETTINGS.editorSize) + delta, EDITOR_SIZE_MIN, EDITOR_SIZE_MAX);
+  const size = clamp(state.settings.editorSize + delta, EDITOR_SIZE_MIN, EDITOR_SIZE_MAX);
   state.settings.editorSize = size;
   document.documentElement.style.setProperty("--editor-size", `${size}px`);
   elements.font_size_label.textContent = size;
@@ -2214,16 +2201,16 @@ function exportMarkdown(includeCode = false) {
     const record = recordFor(problem.slug, false);
     const metadata = {
       slug: problem.slug,
-      status: record.status || "todo",
-      attempts: Number(record.attempts || 0),
+      status: record.status,
+      attempts: record.attempts,
       updatedAt: record.updatedAt || null,
       passedAt: record.passedAt || null,
-      noteBase64: encodeRecordText(record.note || ""),
+      noteBase64: encodeRecordText(record.note),
       codeBase64: includeCode && record.code != null ? encodeRecordText(record.code) : null,
     };
     metadataRecords.push(metadata);
     const title = `[${metadata.status === "solved" ? "x" : " "}] **${problem.frontendId}. ${markdownTableCell(problem.title)}**`;
-    const note = (record.note || "").trim() ? markdownTableCell(record.note) : "—";
+    const note = record.note.trim() ? markdownTableCell(record.note) : "—";
     const cells = [title, note];
     if (includeCode) cells.push(record.code != null ? markdownCodeCell(record.code) : "—");
     lines.push(`| ${cells.join(" | ")} |`);
@@ -2248,6 +2235,16 @@ function openExportModal() {
 
 function closeExportModal() {
   hideModal(elements.export_modal, elements.export_button);
+}
+
+const MODAL_CONTROLLERS = [
+  { element: elements.custom_case_modal, close: closeCustomCaseModal },
+  { element: elements.export_modal, close: closeExportModal },
+  { element: elements.reset_progress_modal, close: closeResetProgressModal },
+];
+
+function activeModalController() {
+  return MODAL_CONTROLLERS.find(({ element }) => !element.classList.contains("hidden"));
 }
 
 function finalizeImport(importedRecords, skippedCount) {
@@ -2284,9 +2281,9 @@ function importMarkdown(text) {
       if (!bySlug.has(metadata.slug) || typeof metadata.noteBase64 !== "string") throw new Error("题目标识或笔记数据无效");
       const record = normalizeRecord({
         ...recordFor(metadata.slug, false),
-        status: VALID_STATUSES.has(metadata.status) ? metadata.status : "todo",
+        status: metadata.status,
         attempts: metadata.attempts,
-        updatedAt: metadata.updatedAt || new Date().toISOString(),
+        updatedAt: metadata.updatedAt || timestamp(),
         passedAt: metadata.passedAt || null,
         note: decodeRecordText(metadata.noteBase64),
       });
@@ -2296,7 +2293,7 @@ function importMarkdown(text) {
         else throw new Error("个人代码数据无效");
       }
       importedRecords.set(metadata.slug, record);
-    } catch (error) {
+    } catch {
       skippedCount += 1;
     }
   }
@@ -2318,13 +2315,14 @@ let pyodide = null;
 let harness = "";
 let formatterBundle = null;
 let formatterScript = "";
+const errorText = (error) => String(error && (error.stack || error.message) || error);
 
 // Pyodide rejects classic workers when importScripts is present. We deliberately
 // hide it and use dynamic import so the same worker also works from file:// URLs,
 // where module workers are rejected by some browsers.
 try {
   Object.defineProperty(globalThis, "importScripts", { value: undefined, configurable: true });
-} catch (error) {
+} catch {
   globalThis.importScripts = undefined;
 }
 
@@ -2352,30 +2350,25 @@ self.onmessage = async (event) => {
       });
       self.postMessage({ type: "ready" });
     } catch (error) {
-      self.postMessage({ type: "init-error", error: String(error && (error.stack || error.message) || error) });
+      self.postMessage({ type: "init-error", error: errorText(error) });
     }
     return;
   }
-  if (message.type === "run") {
-    try {
+  if (message.type !== "run" && message.type !== "format") return;
+  try {
+    let result;
+    if (message.type === "run") {
       pyodide.globals.set("payload_json", JSON.stringify(message.payload));
-      const result = await pyodide.runPythonAsync(harness + "\\nRESULT_JSON");
-      self.postMessage({ type: "run-result", id: message.id, result: JSON.parse(result) });
-    } catch (error) {
-      self.postMessage({ type: "run-error", id: message.id, error: String(error && (error.stack || error.message) || error) });
-    }
-    return;
-  }
-  if (message.type === "format") {
-    try {
+      result = await pyodide.runPythonAsync(harness + "\\nRESULT_JSON");
+    } else {
       pyodide.globals.set("formatter_bundle_json", JSON.stringify(formatterBundle));
       pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
       pyodide.globals.set("formatter_source", message.source);
-      const result = await pyodide.runPythonAsync(formatterScript + "\\nFORMAT_RESULT_JSON");
-      self.postMessage({ type: "format-result", id: message.id, result: JSON.parse(result) });
-    } catch (error) {
-      self.postMessage({ type: "format-error", id: message.id, error: String(error && (error.stack || error.message) || error) });
+      result = await pyodide.runPythonAsync(formatterScript + "\\nFORMAT_RESULT_JSON");
     }
+    self.postMessage({ type: message.type + "-result", id: message.id, result: JSON.parse(result) });
+  } catch (error) {
+    self.postMessage({ type: message.type + "-error", id: message.id, error: errorText(error) });
   }
 };
 `;
@@ -2566,12 +2559,15 @@ function ensureJudge() {
   return judgeReady;
 }
 
+async function runMainThreadPython(pyodide, globals, script) {
+  for (const [name, value] of Object.entries(globals)) pyodide.globals.set(name, value);
+  return JSON.parse(await pyodide.runPythonAsync(script));
+}
+
 async function evaluate(payload, timeoutMs) {
   const backend = await ensureJudge();
   if (backend.kind === "main") {
-    backend.pyodide.globals.set("payload_json", JSON.stringify(payload));
-    const result = await backend.pyodide.runPythonAsync(PYTHON_HARNESS + "\nRESULT_JSON");
-    return JSON.parse(result);
+    return runMainThreadPython(backend.pyodide, { payload_json: JSON.stringify(payload) }, `${PYTHON_HARNESS}\nRESULT_JSON`);
   }
   return requestPythonWorker(backend.worker, "run", { payload }, timeoutMs);
 }
@@ -2579,11 +2575,11 @@ async function evaluate(payload, timeoutMs) {
 async function formatPythonSource(source, timeoutMs = 12000) {
   const backend = await ensureJudge();
   if (backend.kind === "main") {
-    backend.pyodide.globals.set("formatter_bundle_json", JSON.stringify(FORMATTER_BUNDLE));
-    backend.pyodide.globals.set("formatter_line_length", FORMATTER_BUNDLE.lineLength);
-    backend.pyodide.globals.set("formatter_source", source);
-    const result = await backend.pyodide.runPythonAsync(PYTHON_FORMATTER + "\nFORMAT_RESULT_JSON");
-    return JSON.parse(result);
+    return runMainThreadPython(backend.pyodide, {
+      formatter_bundle_json: JSON.stringify(FORMATTER_BUNDLE),
+      formatter_line_length: FORMATTER_BUNDLE.lineLength,
+      formatter_source: source,
+    }, `${PYTHON_FORMATTER}\nFORMAT_RESULT_JSON`);
   }
   return requestPythonWorker(backend.worker, "format", { source }, timeoutMs);
 }
@@ -2783,14 +2779,15 @@ async function runEvaluation(mode) {
   try {
     const result = await evaluate(payload, mode === "submit" ? 9000 : 6000);
     const record = recordFor(slug);
-    if (mode === "submit") record.attempts = Number(record.attempts || 0) + 1;
+    if (mode === "submit") record.attempts += 1;
+    const updatedAt = timestamp();
     if (mode === "submit" && result.passed) {
       record.status = "solved";
-      record.passedAt = new Date().toISOString();
+      record.passedAt = updatedAt;
     } else if (record.status !== "solved") {
       record.status = "attempted";
     }
-    record.updatedAt = new Date().toISOString();
+    record.updatedAt = updatedAt;
     saveState(true);
     if (currentSlug === slug) {
       renderResults(result, mode);
@@ -2826,7 +2823,7 @@ elements.search_input.addEventListener("keydown", (event) => {
 elements.clear_filter_button.addEventListener("click", () => {
   elements.search_input.value = ""; elements.difficulty_filter.value = "all"; elements.status_filter.value = "all"; renderCatalog();
 });
-elements.continue_button.addEventListener("click", () => openProblem(bySlug.has(state.settings.lastSlug) ? state.settings.lastSlug : PROBLEMS[0].slug));
+elements.continue_button.addEventListener("click", () => openProblem(state.settings.lastSlug));
 elements.random_button.addEventListener("click", () => {
   const remaining = PROBLEMS.filter((problem) => statusFor(problem.slug) !== "solved");
   const pool = remaining.length ? remaining : PROBLEMS;
@@ -2846,8 +2843,9 @@ elements.next_button.addEventListener("click", () => { const index = bySlug.get(
 elements.mastered_button.addEventListener("click", () => {
   const record = recordFor(currentSlug);
   record.status = record.status === "solved" ? (record.attempts ? "attempted" : "todo") : "solved";
-  if (record.status === "solved") record.passedAt = new Date().toISOString();
-  record.updatedAt = new Date().toISOString(); saveState(true); updateMasteredButton(); toast(record.status === "solved" ? "已标记为掌握" : "已取消掌握标记");
+  record.updatedAt = timestamp();
+  record.passedAt = record.status === "solved" ? record.updatedAt : null;
+  saveState(true); updateMasteredButton(); toast(record.status === "solved" ? "已标记为掌握" : "已取消掌握标记");
 });
 workspaceTabButtons.forEach((button) => button.addEventListener("click", () => switchWorkspaceTab(button.dataset.tab)));
 elements.workspace_tabs.addEventListener("keydown", (event) => {
@@ -2946,7 +2944,6 @@ elements.custom_case_list.addEventListener("click", (event) => {
   customCaseDrafts.splice(index, 1);
   renderCustomCaseDrafts();
 });
-elements.custom_case_modal.addEventListener("click", (event) => { if (event.target === elements.custom_case_modal) closeCustomCaseModal(); });
 function toggleResultCase(head) {
   const item = head?.closest(".case-item");
   if (!item) return;
@@ -2971,11 +2968,9 @@ elements.export_confirm_button.addEventListener("click", () => {
   closeExportModal();
   exportMarkdown(includeCode);
 });
-elements.export_modal.addEventListener("click", (event) => { if (event.target === elements.export_modal) closeExportModal(); });
 elements.reset_progress_button.addEventListener("click", openResetProgressModal);
 elements.reset_progress_cancel_button.addEventListener("click", closeResetProgressModal);
 elements.reset_progress_confirm_button.addEventListener("click", confirmResetProgress);
-elements.reset_progress_modal.addEventListener("click", (event) => { if (event.target === elements.reset_progress_modal) closeResetProgressModal(); });
 elements.import_button.addEventListener("click", () => elements.markdown_file_input.click());
 elements.markdown_file_input.addEventListener("change", async () => {
   const file = elements.markdown_file_input.files[0];
@@ -2990,8 +2985,10 @@ elements.markdown_file_input.addEventListener("change", async () => {
   } catch (error) { toast(error.message || "Markdown 导入失败", "error"); }
 });
 elements.theme_button.addEventListener("click", () => { applyTheme(state.settings.theme === "dark" ? "light" : "dark"); saveState(); });
-[elements.custom_case_modal, elements.export_modal, elements.reset_progress_modal]
-  .forEach((modal) => modal.addEventListener("keydown", (event) => trapModalFocus(modal, event)));
+for (const { element, close } of MODAL_CONTROLLERS) {
+  element.addEventListener("click", (event) => { if (event.target === element) close(); });
+  element.addEventListener("keydown", (event) => trapModalFocus(element, event));
+}
 elements.pane_resizer.addEventListener("pointerdown", (event) => {
   if (mobileWorkspaceMedia.matches || elements.study_view.classList.contains("problem-collapsed")) return;
   paneResizePointerId = event.pointerId;
@@ -3045,9 +3042,8 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     resetPrivacyShortcut();
     if (privacyMode) return;
-    if (!elements.custom_case_modal.classList.contains("hidden")) closeCustomCaseModal();
-    else if (!elements.export_modal.classList.contains("hidden")) closeExportModal();
-    else if (!elements.reset_progress_modal.classList.contains("hidden")) closeResetProgressModal();
+    const modal = activeModalController();
+    if (modal) modal.close();
     else if (elements.result_panel.classList.contains("open")) {
       elements.result_panel.classList.remove("open");
       elements.code_editor.focus();

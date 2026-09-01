@@ -177,7 +177,7 @@ if (harnessLibrary === pythonHarness) throw new Error("无法拆分 Python 评�
 const PYTHON_BATCH_RUNNER = `import json, sys\n${harnessLibrary}\npayloads = json.load(sys.stdin)\nprint(json.dumps([run_payload(payload) for payload in payloads], ensure_ascii=False))\n`;
 if (Buffer.byteLength(PYTHON_BATCH_RUNNER) > 64 * 1024) throw new Error("Python 批量测试入口超过安全的命令行参数大小");
 
-function pythonResults(payloads) {
+function pythonResults(payloads, failureLabel) {
   const processResult = spawnSync("python3", ["-c", PYTHON_BATCH_RUNNER], {
     encoding: "utf8",
     input: JSON.stringify(payloads),
@@ -186,17 +186,15 @@ function pythonResults(payloads) {
   let parsed;
   try {
     parsed = JSON.parse(typeof processResult.stdout === "string" ? processResult.stdout.trim() : "");
-  } catch (error) {
+  } catch {
     parsed = null;
   }
-  return { processResult, parsed };
-}
-
-function pythonProcessFailure(processResult) {
-  return processResult.error?.stack
+  if (processResult.status === 0 && Array.isArray(parsed)) return parsed;
+  const detail = processResult.error?.stack
     || processResult.stderr?.trim()
     || processResult.stdout?.trim()
     || `python3 子进程未正常退出（status=${processResult.status}, signal=${processResult.signal || "none"}）`;
+  throw new Error(`${failureLabel}：${detail}`);
 }
 
 function payloadFor(solution, userCode = solution.code, limit = solution.tests.length) {
@@ -220,10 +218,7 @@ function testReferenceSolutions() {
     }
     evaluable.push({ problem, payload: payloadFor(solution) });
   }
-  const { processResult, parsed } = pythonResults(evaluable.map(({ payload }) => payload));
-  if (processResult.status !== 0 || !Array.isArray(parsed)) {
-    throw new Error(`参考实现批量执行失败：${pythonProcessFailure(processResult)}`);
-  }
+  const parsed = pythonResults(evaluable.map(({ payload }) => payload), "参考实现批量执行失败");
   for (const [index, result] of parsed.entries()) {
     if (result?.passed) continue;
     const problem = evaluable[index].problem;
@@ -241,10 +236,7 @@ function testNegativeCases() {
     ["lowest-common-ancestor-of-a-binary-tree", "class Solution:\n    def lowestCommonAncestor(self, root, p, q): return TreeNode(3)", "返回了伪造节点"],
     ["valid-parentheses", "class Solution:\n    def isValid(self, s) return True", "Python 语法错误"],
   ];
-  const { processResult, parsed } = pythonResults(cases.map(([slug, userCode]) => payloadFor(solutions[slug], userCode, 2)));
-  if (processResult.status !== 0 || !Array.isArray(parsed)) {
-    throw new Error(`反例批量执行失败：${pythonProcessFailure(processResult)}`);
-  }
+  const parsed = pythonResults(cases.map(([slug, userCode]) => payloadFor(solutions[slug], userCode, 2)), "反例批量执行失败");
   for (const [index, result] of parsed.entries()) {
     if (result?.passed) throw new Error(`${cases[index][0]} 未能拒绝：${cases[index][2]}`);
   }
@@ -263,11 +255,11 @@ function testCustomCases() {
   const invalidClassPayload = payloadFor(classSolution, classSolution.code, 0);
   invalidClassPayload.cases = [{ index: 0, visible: true, value: { ops: ["LRUCache", "get"], args: [[1]] } }];
 
-  const { processResult, parsed } = pythonResults([methodPayload, classPayload, invalidClassPayload]);
+  const parsed = pythonResults([methodPayload, classPayload, invalidClassPayload], "自定义样例执行失败");
   const valid = parsed?.[0]?.passed && parsed?.[0]?.results?.[0]?.label === "自定义样例 1"
     && parsed?.[1]?.passed && parsed?.[1]?.results?.[0]?.label === "自定义样例 2";
-  if (processResult.status !== 0 || !valid || parsed?.[2]?.fatal !== "内置参考实现执行失败") {
-    throw new Error(`自定义样例执行失败：${pythonProcessFailure(processResult)}`);
+  if (!valid || parsed[2]?.fatal !== "内置参考实现执行失败") {
+    throw new Error(`自定义样例结果异常：${JSON.stringify(parsed)}`);
   }
   console.log("PASS 函数题、设计题与无效自定义样例校验");
 }
@@ -302,10 +294,11 @@ function verifyExportHelpers(html, check) {
 }
 
 function verifyStateHelpers(html, check) {
-  const recordStart = html.indexOf("function normalizeRecord");
-  const settingsStart = html.indexOf("function normalizeSettings", recordStart);
+  const recordStart = html.indexOf("function plainObject");
+  const normalizeRecordStart = html.indexOf("function normalizeRecord", recordStart);
+  const settingsStart = html.indexOf("function normalizeSettings", normalizeRecordStart);
   const loadStateStart = html.indexOf("function loadState", settingsStart);
-  check(recordStart >= 0 && settingsStart > recordStart && loadStateStart > settingsStart, "可提取本地状态校验函数");
+  check(recordStart >= 0 && normalizeRecordStart > recordStart && settingsStart > normalizeRecordStart && loadStateStart > settingsStart, "可提取本地状态校验函数");
 
   const recordContext = {
     VALID_STATUSES: new Set(["todo", "attempted", "solved"]),
@@ -316,10 +309,12 @@ function verifyStateHelpers(html, check) {
   const recordScript = `${html.slice(recordStart, settingsStart)}\nglobalThis.normalized = normalizeRecord({
     status: "invalid", attempts: -3, note: 42, code: null,
     customCases: ["valid", "too-long", 7, "ok"],
-  });`;
+  });
+globalThis.inconsistent = normalizeRecord({ status: "todo", attempts: 2, passedAt: "stale" });`;
   new vm.Script(recordScript, { filename: "state-record.test.js" }).runInNewContext(recordContext);
   check(recordContext.normalized.status === "todo" && recordContext.normalized.attempts === 0 && recordContext.normalized.note === "" && !("code" in recordContext.normalized), "损坏的题目状态会回退到安全默认值");
   check(JSON.stringify(recordContext.normalized.customCases) === JSON.stringify(["valid", "ok"]), "自定义样例会按类型、大小和数量清洗");
+  check(JSON.stringify(recordContext.inconsistent) === JSON.stringify({ status: "attempted", attempts: 2, note: "", updatedAt: null, passedAt: null }), "本地状态加载时会统一提交次数、题目状态和通过时间");
 
   const settingsContext = {
     DEFAULT_SETTINGS: Object.freeze({ theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }),
@@ -330,7 +325,8 @@ function verifyStateHelpers(html, check) {
     clamp: (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value)),
     bySlug: new Map([["first", true]]),
   };
-  const settingsScript = `${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
+  const settingsScript = `${html.slice(recordStart, normalizeRecordStart)}
+${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
     theme: "invalid", editorSize: 99, lastSlug: "missing", expandProblemByDefault: "true", problemPaneWidth: null,
   });
 globalThis.valid = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 });`;
@@ -338,7 +334,7 @@ globalThis.valid = normalizeSettings({ theme: "light", editorSize: 16, lastSlug:
   check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "损坏的界面设置会回退到默认展开题面和分栏宽度");
   check(JSON.stringify(settingsContext.valid) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 }), "有效界面设置会直接保留且不再经过旧版迁移分支");
 
-  const progressStart = html.indexOf("function recordHasProgress", loadStateStart);
+  const progressStart = html.indexOf("function resetProgressRecords", loadStateStart);
   const summaryStart = html.indexOf("function renderSummary", progressStart);
   check(progressStart >= 0 && summaryStart > progressStart, "可提取学习进度重置函数");
   const progressContext = { PROBLEMS: [{ slug: "solved" }, { slug: "attempted" }, { slug: "untouched" }] };
@@ -348,9 +344,9 @@ const records = {
   attempted: { status: "attempted", attempts: 0, passedAt: null, updatedAt: "old-attempt", note: "also keep" },
   untouched: { status: "todo", attempts: 0, passedAt: null, updatedAt: "unchanged", code: "value = 1" },
 };
-globalThis.before = progressRecordCount(records);
+globalThis.before = PROBLEMS.filter(({ slug }) => records[slug]?.status !== "todo").length;
 globalThis.resetCount = resetProgressRecords(records, "reset-at");
-globalThis.after = progressRecordCount(records);
+globalThis.after = PROBLEMS.filter(({ slug }) => records[slug]?.status !== "todo").length;
 globalThis.records = records;`;
   new vm.Script(progressScript, { filename: "state-progress-reset.test.js" }).runInNewContext(progressContext);
   check(progressContext.before === 2 && progressContext.resetCount === 2 && progressContext.after === 0, "学习进度重置会覆盖已通过、进行中和累计提交状态");
