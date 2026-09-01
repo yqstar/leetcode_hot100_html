@@ -43,6 +43,7 @@
   --syntax-definition: #a23861;
   --syntax-decorator: #a94c0d;
   --syntax-operator: #485872;
+  --indent-guide: rgba(72, 88, 114, .18);
 }
 
 [data-theme="dark"] {
@@ -78,6 +79,7 @@
   --syntax-definition: #ff9fbd;
   --syntax-decorator: #f0a76c;
   --syntax-operator: #aebbd1;
+  --indent-guide: rgba(174, 187, 209, .2);
 }
 
 * { box-sizing: border-box; }
@@ -89,7 +91,6 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 14px;
-  -webkit-font-smoothing: antialiased;
 }
 
 button, input, textarea { font: inherit; }
@@ -183,7 +184,7 @@ body.privacy-mode > :not(.privacy-view) { display: none !important; }
 .privacy-progress-row strong { color: var(--privacy-heading); font-size: 15px; }
 .privacy-progress-row span { color: var(--privacy-accent); font-size: 25px; font-weight: 760; }
 .privacy-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: var(--privacy-track); }
-.privacy-progress-track::after { content: ""; display: block; width: 68%; height: 100%; border-radius: inherit; background: var(--privacy-accent); }
+.privacy-progress-track::after { content: ""; display: block; width: var(--privacy-progress, 68%); height: 100%; border-radius: inherit; background: var(--privacy-accent); transition: width .25s ease; }
 .privacy-progress p { margin: 13px 0 0; color: var(--privacy-faint); font-size: 12px; line-height: 1.6; }
 .privacy-footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 24px; color: var(--privacy-faint); font-size: 11px; }
 
@@ -500,9 +501,11 @@ body.resizing-panes, body.resizing-panes * { cursor: col-resize !important; user
   outline: 0;
   background: var(--surface);
   tab-size: 4;
-  white-space: pre;
+  padding: 26px 28px 80px;
+  white-space: pre-wrap;
   overflow: auto;
   font: var(--editor-size)/1.72 "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.8;
 }
 .code-editor-shell { position: relative; min-height: 0; flex: 1; overflow: hidden; background: var(--surface); }
 .code-editor, .code-highlight {
@@ -519,7 +522,7 @@ body.resizing-panes, body.resizing-panes * { cursor: col-resize !important; user
   font: var(--editor-size)/1.72 "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 .code-highlight { z-index: 1; overflow: hidden; color: var(--text); background: var(--surface); pointer-events: none; }
-.code-editor { z-index: 2; resize: none; overflow: auto; color: transparent; caret-color: var(--text); background: transparent; outline: 0; -webkit-text-fill-color: transparent; }
+.code-editor { z-index: 2; resize: none; overflow: auto; color: transparent; caret-color: var(--text); background: transparent; outline: 0; }
 .code-editor::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); }
 .py-keyword { color: var(--syntax-keyword); font-weight: 650; }
 .py-string { color: var(--syntax-string); }
@@ -530,7 +533,7 @@ body.resizing-panes, body.resizing-panes * { cursor: col-resize !important; user
 .py-decorator { color: var(--syntax-decorator); }
 .py-self { color: var(--syntax-decorator); font-style: italic; }
 .py-operator { color: var(--syntax-operator); }
-.notes-editor { padding: 26px 28px 80px; line-height: 1.8; white-space: pre-wrap; }
+.py-indent-guide { box-shadow: inset -1px 0 var(--indent-guide); }
 .editor-statusbar { flex: 0 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 13px; border-top: 1px solid var(--line); color: var(--faint); background: var(--surface-2); font-size: 10px; }
 .runbar { flex: 0 0 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--line); background: var(--surface); }
 .runbar-leading, .run-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -701,18 +704,18 @@ body.modal-open { overflow: hidden; }
   <section id="privacy-view" class="privacy-view" tabindex="-1" aria-label="每日工作台" aria-hidden="true" inert>
     <div class="privacy-shell">
       <header class="privacy-header">
-        <div class="privacy-brand"><span class="privacy-brand-mark" aria-hidden="true">日</span><span>日常工作台</span></div>
+        <div class="privacy-brand"><span id="privacy-brand-mark" class="privacy-brand-mark" aria-hidden="true">日</span><span id="privacy-brand-name">日常工作台</span></div>
         <div class="privacy-local-status">本地内容已保存</div>
       </header>
       <div class="privacy-intro">
         <p id="privacy-date" class="privacy-date"></p>
-        <h1>今日概览</h1>
-        <p>保持节奏，先完成最重要的一件事。这里汇总了今天的日程、备忘和本周进度。</p>
+        <h1 id="privacy-title">今日概览</h1>
+        <p id="privacy-summary">保持节奏，先完成最重要的一件事。这里汇总了今天的日程、备忘和本周进度。</p>
       </div>
       <div class="privacy-dashboard">
         <article class="privacy-card">
-          <header class="privacy-card-header"><h2>今日安排</h2><span id="privacy-time"></span></header>
-          <ol class="privacy-schedule">
+          <header class="privacy-card-header"><h2 id="privacy-schedule-title">今日安排</h2><span id="privacy-time"></span></header>
+          <ol id="privacy-schedule" class="privacy-schedule">
             <li><span class="privacy-time">09:30</span><span class="privacy-schedule-dot"></span><span class="privacy-task"><strong>整理本周资料</strong><small>归档文档与待处理事项</small></span></li>
             <li><span class="privacy-time">11:00</span><span class="privacy-schedule-dot"></span><span class="privacy-task"><strong>项目进度同步</strong><small>确认里程碑和后续安排</small></span></li>
             <li><span class="privacy-time">14:30</span><span class="privacy-schedule-dot"></span><span class="privacy-task"><strong>集中处理邮件</strong><small>回复需要跟进的信息</small></span></li>
@@ -720,8 +723,8 @@ body.modal-open { overflow: hidden; }
           </ol>
         </article>
         <div class="privacy-side">
-          <article class="privacy-card privacy-note"><div class="privacy-note-label">Quick note</div><p>重要但不紧急的事项，安排固定时间集中处理，避免频繁切换注意力。</p></article>
-          <article class="privacy-card privacy-progress"><div class="privacy-progress-row"><strong>本周计划</strong><span>68%</span></div><div class="privacy-progress-track"></div><p>本周已完成 13 项，还有 6 项待处理。</p></article>
+          <article class="privacy-card privacy-note"><div class="privacy-note-label">Quick note</div><p id="privacy-note">重要但不紧急的事项，安排固定时间集中处理，避免频繁切换注意力。</p></article>
+          <article class="privacy-card privacy-progress"><div class="privacy-progress-row"><strong id="privacy-progress-label">本周计划</strong><span id="privacy-progress-percent">68%</span></div><div id="privacy-progress-track" class="privacy-progress-track"></div><p id="privacy-progress-detail">本周已完成 13 项，还有 6 项待处理。</p></article>
         </div>
       </div>
       <footer class="privacy-footer"><span>个人工作区</span><span>内容仅保存在本地</span></footer>
@@ -830,6 +833,7 @@ body.modal-open { overflow: hidden; }
               <div class="toolbar-group"><span class="language-pill">Python 3</span><span id="code-save-state" class="save-state">已保存</span></div>
               <div class="toolbar-group">
                 <div class="font-control" aria-label="编辑器字号"><button id="font-down-button" type="button" aria-label="减小字号">−</button><span id="font-size-label">14</span><button id="font-up-button" type="button" aria-label="增大字号">＋</button></div>
+                <button id="format-code-button" class="button small ghost" type="button" title="使用 Black 格式化（Shift + Alt/Option + F）">格式化</button>
                 <button id="reset-code-button" class="button small ghost" type="button">重置模板</button>
               </div>
             </div>
@@ -837,7 +841,7 @@ body.modal-open { overflow: hidden; }
               <pre id="code-highlight" class="code-highlight" aria-hidden="true"></pre>
               <textarea id="code-editor" class="code-editor" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python 代码编辑器"></textarea>
             </div>
-            <div class="editor-statusbar"><span>Tab 缩进 · ⌘/Ctrl + / 注释 · ⌘/Ctrl + Enter 运行</span><span id="cursor-position">Ln 1, Col 1</span></div>
+            <div class="editor-statusbar"><span>Tab / 退格缩进 · 括号补全 · Shift + Alt/Option + F 格式化 · ⌘/Ctrl + Enter 运行</span><span id="cursor-position">Ln 1, Col 1</span></div>
             <div id="result-panel" class="result-panel" aria-live="polite" aria-busy="false"></div>
             <div class="runbar">
               <div class="runbar-leading">
@@ -904,6 +908,8 @@ body.modal-open { overflow: hidden; }
 const PROBLEMS = __PROBLEMS_JSON__;
 const SOLUTIONS = __SOLUTIONS_JSON__;
 const PYTHON_HARNESS = __PYTHON_HARNESS_JSON__;
+const PYTHON_FORMATTER = __PYTHON_FORMATTER_JSON__;
+const FORMATTER_BUNDLE = __FORMATTER_BUNDLE_JSON__;
 const PYODIDE_LOCK = __PYODIDE_LOCK_JSON__;
 const RUNTIME_BASE64 = {
   loader: "__PYODIDE_LOADER_B64__",
@@ -913,15 +919,87 @@ const RUNTIME_BASE64 = {
 };
 
 const STORAGE_KEY = "lc-offline:v1";
-const STATE_VERSION = 3;
 const EXPORT_VERSION = 1;
 const MAX_CUSTOM_CASES = 20;
 const MAX_CUSTOM_CASE_LENGTH = 50_000;
 const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
 const DOUBLE_ENTER_WINDOW_MS = 450;
+const EDITOR_SIZE_MIN = 12;
+const EDITOR_SIZE_MAX = 20;
+const PROBLEM_PANE_MIN = 28;
+const PROBLEM_PANE_MAX = 68;
+const PROBLEM_PANE_DEFAULT = 43;
+const PROBLEM_PANE_MIN_PX = 360;
+const WORKSPACE_PANE_MIN_PX = 488;
 const WORKSPACE_TAB_NAMES = new Set(["code", "notes", "solution"]);
 const PRIVACY_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" });
 const PRIVACY_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+const PRIVACY_PAGE_PRESETS = Object.freeze([
+  {
+    documentTitle: "每日工作台",
+    brandMark: "日",
+    brandName: "日常工作台",
+    title: "今日概览",
+    summary: "保持节奏，先完成最重要的一件事。这里汇总了今天的日程、备忘和本周进度。",
+    scheduleTitle: "今日安排",
+    schedule: [
+      ["09:30", "整理本周资料", "归档文档与待处理事项"],
+      ["11:00", "项目进度同步", "确认里程碑和后续安排"],
+      ["14:30", "集中处理邮件", "回复需要跟进的信息"],
+      ["17:30", "今日复盘", "记录完成项与明日重点"],
+    ],
+  },
+  {
+    documentTitle: "项目工作台",
+    brandMark: "项",
+    brandName: "项目工作台",
+    title: "今日推进",
+    summary: "按优先级推进当前事项，留出完整时间处理需要专注的工作。",
+    scheduleTitle: "推进清单",
+    schedule: [
+      ["09:00", "校对项目清单", "确认优先级和负责人"],
+      ["10:40", "更新需求记录", "补充变更与待确认问题"],
+      ["14:00", "集中评审文档", "整理需要反馈的细节"],
+      ["16:45", "汇总后续行动", "同步节点与下一步安排"],
+    ],
+  },
+  {
+    documentTitle: "个人事务台",
+    brandMark: "事",
+    brandName: "个人事务台",
+    title: "本日计划",
+    summary: "减少来回切换，把相近的事务放在一起完成，为重点事项保留连续时间。",
+    scheduleTitle: "事务安排",
+    schedule: [
+      ["08:50", "浏览待办列表", "划分今天的处理顺序"],
+      ["10:20", "处理资料归档", "整理近期文件与记录"],
+      ["13:40", "完成重点事项", "集中处理高优先级任务"],
+      ["17:10", "回顾今日进度", "更新完成项和明日计划"],
+    ],
+  },
+  {
+    documentTitle: "协作工作台",
+    brandMark: "协",
+    brandName: "协作工作台",
+    title: "工作摘要",
+    summary: "先确认协作依赖，再集中完成个人部分，让信息和行动保持同步。",
+    scheduleTitle: "协作日程",
+    schedule: [
+      ["09:15", "准备同步材料", "整理当前进展与待决事项"],
+      ["11:20", "确认依赖事项", "核对交付时间和前置条件"],
+      ["15:00", "汇总阶段反馈", "记录结论与需要调整的部分"],
+      ["17:40", "更新明日计划", "安排后续跟进和重点工作"],
+    ],
+  },
+]);
+const PRIVACY_NOTES = Object.freeze([
+  "重要但不紧急的事项，安排固定时间集中处理，避免频繁切换注意力。",
+  "先把需要完整思考的工作做完，再处理零散信息和临时请求。",
+  "遇到暂时无法推进的事项，记录下一步动作，不在原地反复消耗时间。",
+  "每完成一个阶段就更新记录，让后续沟通能够快速对齐上下文。",
+  "给今天保留一段不被打断的时间，专门处理最需要专注的任务。",
+]);
+const PRIVACY_PROGRESS_LABELS = Object.freeze(["本周计划", "阶段任务", "近期事项"]);
 const DIFFICULTY = {
   Easy: { label: "简单", className: "easy" },
   Medium: { label: "中等", className: "medium" },
@@ -930,6 +1008,13 @@ const DIFFICULTY = {
 const STATUS_LABEL = { todo: "未开始", attempted: "进行中", solved: "已通过" };
 const VALID_STATUSES = new Set(Object.keys(STATUS_LABEL));
 const EMPTY_RECORD = Object.freeze({ status: "todo", attempts: 0, note: "", updatedAt: null, passedAt: null });
+const DEFAULT_SETTINGS = Object.freeze({
+  theme: "dark",
+  editorSize: 14,
+  lastSlug: PROBLEMS[0].slug,
+  expandProblemByDefault: true,
+  problemPaneWidth: PROBLEM_PANE_DEFAULT,
+});
 const bySlug = new Map(PROBLEMS.map((problem, index) => [problem.slug, { problem, index }]));
 const categories = [...new Set(PROBLEMS.map((problem) => problem.category))];
 const problemsByCategory = new Map(categories.map((category) => [
@@ -945,7 +1030,9 @@ const searchTextBySlug = new Map(PROBLEMS.map((problem) => [
 const sanitizedContentBySlug = new Map();
 
 const ELEMENT_IDS = [
-  "storage-warning", "app-header", "app-main", "privacy-view", "privacy-date", "privacy-time", "workspace-tabs",
+  "storage-warning", "app-header", "app-main", "privacy-view", "privacy-brand-mark", "privacy-brand-name", "privacy-date", "privacy-time",
+  "privacy-title", "privacy-summary", "privacy-schedule-title", "privacy-schedule", "privacy-note", "privacy-progress-label",
+  "privacy-progress-percent", "privacy-progress-track", "privacy-progress-detail", "workspace-tabs",
   "catalog-view", "study-view", "category-grid", "search-input",
   "difficulty-filter", "status-filter", "clear-filter-button", "catalog-result-count", "solved-count",
   "attempted-count", "noted-count", "submission-count", "progress-number", "progress-orbit",
@@ -953,15 +1040,20 @@ const ELEMENT_IDS = [
   "markdown-file-input", "toast-stack", "back-button", "previous-button", "next-button",
   "mastered-button", "problem-toggle-button", "study-position", "study-title-mini", "study-layout", "pane-resizer", "problem-kicker", "problem-title",
   "official-content", "problem-pane", "code-editor", "code-highlight", "notes-editor", "code-save-state",
-  "notes-save-state", "font-down-button", "font-up-button", "font-size-label", "reset-code-button",
+  "notes-save-state", "font-down-button", "font-up-button", "font-size-label", "format-code-button", "reset-code-button",
   "cursor-position", "runtime-status", "custom-case-button", "run-button", "submit-button", "result-panel",
   "solution-note", "solution-complexity", "reference-code", "copy-solution-button",
   "export-modal", "export-code-checkbox", "export-cancel-button", "export-confirm-button",
   "custom-case-modal", "custom-case-template", "custom-case-list", "custom-case-add-button",
   "custom-case-cancel-button", "custom-case-save-button",
 ];
-const elements = Object.fromEntries(ELEMENT_IDS.map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
-const missingElementIds = ELEMENT_IDS.filter((id) => !document.getElementById(id));
+const elements = {};
+const missingElementIds = [];
+for (const id of ELEMENT_IDS) {
+  const element = document.getElementById(id);
+  elements[id.replaceAll("-", "_")] = element;
+  if (!element) missingElementIds.push(id);
+}
 if (missingElementIds.length) throw new Error(`页面缺少必要元素：${missingElementIds.join(", ")}`);
 const workspaceTabButtons = [...elements.workspace_tabs.querySelectorAll('[role="tab"]')];
 const workspacePanels = [...document.querySelectorAll('[role="tabpanel"]')];
@@ -974,8 +1066,11 @@ let saveTimer = null;
 let catalogRenderFrame = null;
 let customCaseDrafts = [];
 let evaluationInProgress = false;
+let formattingInProgress = false;
+let lastFormatChange = null;
 let lastPrivacyEnterAt = null;
 let privacyMode = false;
+let privacyVariantIndex = -1;
 let privacyRestoreTitle = "";
 let privacyRestoreHash = "";
 let privacyRestoreFocus = null;
@@ -985,11 +1080,14 @@ let privacyRestoreScrollY = 0;
 let paneResizePointerId = null;
 let state = loadState();
 
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
 function blankState() {
   return {
-    version: STATE_VERSION,
     records: {},
-    settings: { theme: "dark", editorSize: 14, lastSlug: PROBLEMS[0].slug, expandProblemByDefault: true, problemPaneWidth: 43 },
+    settings: { ...DEFAULT_SETTINGS },
   };
 }
 
@@ -1012,19 +1110,14 @@ function normalizeRecord(value) {
   return record;
 }
 
-function normalizeSettings(value, sourceVersion = STATE_VERSION) {
-  const fallback = blankState().settings;
+function normalizeSettings(value) {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const editorSize = raw.editorSize;
-  const problemPaneWidth = Number(raw.problemPaneWidth);
   return {
-    theme: ["light", "dark"].includes(raw.theme) ? raw.theme : fallback.theme,
-    editorSize: Number.isFinite(editorSize) ? Math.max(12, Math.min(20, Math.round(editorSize))) : fallback.editorSize,
-    lastSlug: bySlug.has(raw.lastSlug) ? raw.lastSlug : fallback.lastSlug,
-    expandProblemByDefault: Number(sourceVersion) < 2
-      ? fallback.expandProblemByDefault
-      : (typeof raw.expandProblemByDefault === "boolean" ? raw.expandProblemByDefault : fallback.expandProblemByDefault),
-    problemPaneWidth: Number.isFinite(problemPaneWidth) ? Math.max(28, Math.min(68, problemPaneWidth)) : fallback.problemPaneWidth,
+    theme: ["light", "dark"].includes(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
+    editorSize: Number.isFinite(raw.editorSize) ? clamp(Math.round(raw.editorSize), EDITOR_SIZE_MIN, EDITOR_SIZE_MAX) : DEFAULT_SETTINGS.editorSize,
+    lastSlug: bySlug.has(raw.lastSlug) ? raw.lastSlug : DEFAULT_SETTINGS.lastSlug,
+    expandProblemByDefault: typeof raw.expandProblemByDefault === "boolean" ? raw.expandProblemByDefault : DEFAULT_SETTINGS.expandProblemByDefault,
+    problemPaneWidth: Number.isFinite(raw.problemPaneWidth) ? clamp(raw.problemPaneWidth, PROBLEM_PANE_MIN, PROBLEM_PANE_MAX) : DEFAULT_SETTINGS.problemPaneWidth,
   };
 }
 
@@ -1036,9 +1129,9 @@ function loadState() {
     localStorage.setItem(testKey, "1");
     localStorage.removeItem(testKey);
     raw = localStorage.getItem(STORAGE_KEY);
-  } catch (error) {
+  } catch {
     storageAvailable = false;
-    queueMicrotask(() => elements.storage_warning?.classList.add("visible"));
+    elements.storage_warning.classList.add("visible");
     return fallback;
   }
   if (!raw) return fallback;
@@ -1050,29 +1143,31 @@ function loadState() {
     for (const problem of PROBLEMS) {
       if (Object.hasOwn(rawRecords, problem.slug)) records[problem.slug] = normalizeRecord(rawRecords[problem.slug]);
     }
-    return { version: STATE_VERSION, records, settings: normalizeSettings(parsed.settings, parsed.version) };
+    return { records, settings: normalizeSettings(parsed.settings) };
   } catch (error) {
     console.warn("本地学习记录损坏，已使用默认状态：", error);
-    queueMicrotask(() => toast("本地学习记录格式损坏，本次已使用默认状态", "error"));
+    toast("本地学习记录格式损坏，本次已使用默认状态", "error");
     return fallback;
+  }
+}
+
+function persistState() {
+  saveTimer = null;
+  if (!storageAvailable) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    storageAvailable = false;
+    elements.storage_warning.classList.add("visible");
+    toast("本地存储失败，请导出 Markdown 备份", "error");
   }
 }
 
 function saveState(immediate = false) {
   clearTimeout(saveTimer);
   saveTimer = null;
-  const persist = () => {
-    if (!storageAvailable) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-      storageAvailable = false;
-      elements.storage_warning.classList.add("visible");
-      toast("本地存储失败，请导出 Markdown 备份", "error");
-    }
-  };
-  if (immediate) persist();
-  else saveTimer = setTimeout(() => { saveTimer = null; persist(); }, 350);
+  if (immediate) persistState();
+  else saveTimer = setTimeout(persistState, 350);
 }
 
 function recordFor(slug, create = true) {
@@ -1356,27 +1451,26 @@ function setProblemPaneCollapsed(collapsed) {
   updateProblemToggleLabel(collapsed);
 }
 
-function applyProblemPaneWidth() {
+function constrainedProblemPaneWidth(percent) {
   const layoutWidth = elements.study_layout.clientWidth;
-  const requested = Number(state.settings.problemPaneWidth) || 43;
-  let applied = requested;
+  const requested = Number(percent);
+  let width = clamp(Number.isFinite(requested) ? requested : PROBLEM_PANE_DEFAULT, PROBLEM_PANE_MIN, PROBLEM_PANE_MAX);
   if (layoutWidth > 0 && !mobileWorkspaceMedia.matches) {
-    const minimum = Math.min(43, 360 / layoutWidth * 100);
-    const maximum = Math.max(minimum, (layoutWidth - 488) / layoutWidth * 100);
-    applied = Math.max(minimum, Math.min(maximum, requested));
+    const minimum = Math.min(PROBLEM_PANE_DEFAULT, PROBLEM_PANE_MIN_PX / layoutWidth * 100);
+    const maximum = Math.max(minimum, (layoutWidth - WORKSPACE_PANE_MIN_PX) / layoutWidth * 100);
+    width = clamp(width, minimum, maximum);
   }
+  return width;
+}
+
+function applyProblemPaneWidth() {
+  const applied = constrainedProblemPaneWidth(state.settings.problemPaneWidth);
   document.documentElement.style.setProperty("--problem-pane-width", `${applied}%`);
   elements.pane_resizer.setAttribute("aria-valuenow", String(Math.round(applied)));
 }
 
 function setProblemPaneWidth(percent, persist = true) {
-  let width = Math.max(28, Math.min(68, Number(percent) || 43));
-  const layoutWidth = elements.study_layout.clientWidth;
-  if (layoutWidth > 0 && !mobileWorkspaceMedia.matches) {
-    const minimum = Math.min(43, 360 / layoutWidth * 100);
-    const maximum = Math.max(minimum, (layoutWidth - 488) / layoutWidth * 100);
-    width = Math.max(minimum, Math.min(maximum, width));
-  }
+  const width = constrainedProblemPaneWidth(percent);
   state.settings.problemPaneWidth = Math.round(width * 10) / 10;
   applyProblemPaneWidth();
   if (persist) saveState();
@@ -1465,6 +1559,80 @@ function restorePrivacyFirstEnter(event) {
   snapshot.target.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function privacyRandomIndex(length, random = Math.random) {
+  if (!Number.isInteger(length) || length <= 0) return -1;
+  const value = Number(random());
+  const unit = Number.isFinite(value) ? clamp(value, 0, 1 - Number.EPSILON) : 0;
+  return Math.floor(unit * length);
+}
+
+function nextPrivacyVariantIndex(previousIndex, random = Math.random) {
+  const length = PRIVACY_PAGE_PRESETS.length;
+  if (length <= 1) return 0;
+  if (!Number.isInteger(previousIndex) || previousIndex < 0 || previousIndex >= length) return privacyRandomIndex(length, random);
+  const candidate = privacyRandomIndex(length - 1, random);
+  return candidate >= previousIndex ? candidate + 1 : candidate;
+}
+
+function privacyRandomItem(items, random = Math.random) {
+  return items[privacyRandomIndex(items.length, random)];
+}
+
+function privacyRandomInteger(minimum, maximum, random = Math.random) {
+  return minimum + privacyRandomIndex(maximum - minimum + 1, random);
+}
+
+function createPrivacyPageModel(previousIndex = privacyVariantIndex, random = Math.random) {
+  const variantIndex = nextPrivacyVariantIndex(previousIndex, random);
+  const completed = privacyRandomInteger(8, 18, random);
+  const remaining = privacyRandomInteger(3, 8, random);
+  return {
+    variantIndex,
+    preset: PRIVACY_PAGE_PRESETS[variantIndex],
+    note: privacyRandomItem(PRIVACY_NOTES, random),
+    progressLabel: privacyRandomItem(PRIVACY_PROGRESS_LABELS, random),
+    completed,
+    remaining,
+    progress: Math.round(completed / (completed + remaining) * 100),
+  };
+}
+
+function renderPrivacyPage() {
+  const model = createPrivacyPageModel();
+  const { preset } = model;
+  privacyVariantIndex = model.variantIndex;
+  elements.privacy_view.setAttribute("aria-label", preset.documentTitle);
+  elements.privacy_brand_mark.textContent = preset.brandMark;
+  elements.privacy_brand_name.textContent = preset.brandName;
+  elements.privacy_title.textContent = preset.title;
+  elements.privacy_summary.textContent = preset.summary;
+  elements.privacy_schedule_title.textContent = preset.scheduleTitle;
+  elements.privacy_note.textContent = model.note;
+  elements.privacy_progress_label.textContent = model.progressLabel;
+  elements.privacy_progress_percent.textContent = `${model.progress}%`;
+  elements.privacy_progress_detail.textContent = `已完成 ${model.completed} 项，还有 ${model.remaining} 项待处理。`;
+  elements.privacy_progress_track.style.setProperty("--privacy-progress", `${model.progress}%`);
+  const scheduleItems = preset.schedule.map(([time, title, detail]) => {
+    const item = document.createElement("li");
+    const timeElement = document.createElement("span");
+    const dot = document.createElement("span");
+    const task = document.createElement("span");
+    const taskTitle = document.createElement("strong");
+    const taskDetail = document.createElement("small");
+    timeElement.className = "privacy-time";
+    timeElement.textContent = time;
+    dot.className = "privacy-schedule-dot";
+    task.className = "privacy-task";
+    taskTitle.textContent = title;
+    taskDetail.textContent = detail;
+    task.append(taskTitle, taskDetail);
+    item.append(timeElement, dot, task);
+    return item;
+  });
+  elements.privacy_schedule.replaceChildren(...scheduleItems);
+  return preset.documentTitle;
+}
+
 function updatePrivacyPageClock() {
   const now = new Date();
   elements.privacy_date.textContent = PRIVACY_DATE_FORMATTER.format(now);
@@ -1482,6 +1650,7 @@ function setPrivacyMode(enabled) {
     privacyRestoreFocus = document.activeElement;
     privacyRestoreScrollX = window.scrollX;
     privacyRestoreScrollY = window.scrollY;
+    const privacyDocumentTitle = renderPrivacyPage();
     updatePrivacyPageClock();
     document.body.classList.add("privacy-mode");
     document.body.classList.remove("modal-open");
@@ -1493,7 +1662,7 @@ function setPrivacyMode(enabled) {
     elements.privacy_view.setAttribute("aria-hidden", "false");
     elements.privacy_view.focus({ preventScroll: true });
     window.scrollTo(0, 0);
-    document.title = "每日工作台";
+    document.title = privacyDocumentTitle;
     if (location.hash) history.replaceState(history.state, "", location.href.split("#")[0]);
     return;
   }
@@ -1578,15 +1747,28 @@ function showSavePulse(element) {
   savePulseTimers.set(element, timer);
 }
 
+const EDITOR_INDENT = "    ";
+const EDITOR_INDENT_SIZE = EDITOR_INDENT.length;
+const EDITOR_BRACKET_PAIRS = Object.freeze({ "(": ")", "[": "]", "{": "}" });
+const EDITOR_CLOSING_BRACKETS = new Set(Object.values(EDITOR_BRACKET_PAIRS));
+
+function codeVisualColumn(text) {
+  let column = 0;
+  for (const character of text) {
+    column += character === "\t" ? EDITOR_INDENT_SIZE - column % EDITOR_INDENT_SIZE : 1;
+  }
+  return column;
+}
+
 function updateCursorPosition() {
   const value = elements.code_editor.value.slice(0, elements.code_editor.selectionStart);
   const lines = value.split("\n");
-  elements.cursor_position.textContent = `Ln ${lines.length}, Col ${lines.at(-1).length + 1}`;
+  elements.cursor_position.textContent = `Ln ${lines.length}, Col ${codeVisualColumn(lines.at(-1)) + 1}`;
 }
 
 function changeEditorSize(delta, persist = true) {
   const currentSize = Number(state.settings.editorSize);
-  const size = Math.max(12, Math.min(20, (Number.isFinite(currentSize) ? currentSize : 14) + delta));
+  const size = clamp((Number.isFinite(currentSize) ? currentSize : DEFAULT_SETTINGS.editorSize) + delta, EDITOR_SIZE_MIN, EDITOR_SIZE_MAX);
   state.settings.editorSize = size;
   document.documentElement.style.setProperty("--editor-size", `${size}px`);
   elements.font_size_label.textContent = size;
@@ -1606,18 +1788,49 @@ const PYTHON_BUILTINS = new Set([
   "print", "property", "range", "repr", "reversed", "round", "set", "setattr", "slice", "sorted", "staticmethod",
   "str", "sum", "super", "tuple", "type", "vars", "zip", "__import__",
 ]);
+const PYTHON_NUMBER_PATTERN = /(?:0[xX][\da-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(?:\d[\d_]*(?:\.[\d_]*)?|\.[\d_]+)(?:[eE][+-]?[\d_]+)?j?)/y;
+const PYTHON_DECORATOR_PATTERN = /@[A-Za-z_][\w.]*/y;
+const PYTHON_WORD_PATTERN = /[A-Za-z_]\w*/y;
+const PYTHON_OPERATOR_PATTERN = /(?:\*\*|\/\/|<<|>>|:=|==|!=|<=|>=|->|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|[-+*/%@&|^~<>=:])/y;
+
+function matchPythonToken(pattern, source, index) {
+  pattern.lastIndex = index;
+  return pattern.exec(source)?.[0] || "";
+}
 
 function highlightPython(source) {
   let html = "";
   let index = 0;
   let expectsDefinition = false;
+  let atLineStart = true;
   const append = (text, className = "") => {
     const escaped = escapeHtml(text);
     html += className ? `<span class="${className}">${escaped}</span>` : escaped;
+    atLineStart = text.endsWith("\n");
+  };
+  const appendIndentation = (indentation) => {
+    let column = 0;
+    let chunk = "";
+    for (const character of indentation) {
+      chunk += character;
+      column += character === "\t" ? EDITOR_INDENT_SIZE - column % EDITOR_INDENT_SIZE : 1;
+      if (column % EDITOR_INDENT_SIZE === 0) {
+        append(chunk, "py-indent-guide");
+        chunk = "";
+      }
+    }
+    if (chunk) append(chunk);
   };
 
   while (index < source.length) {
     const character = source[index];
+    if (atLineStart && (character === " " || character === "\t")) {
+      let indentationEnd = index + 1;
+      while (source[indentationEnd] === " " || source[indentationEnd] === "\t") indentationEnd += 1;
+      appendIndentation(source.slice(index, indentationEnd));
+      index = indentationEnd;
+      continue;
+    }
     if (character === "\n") {
       append(character);
       expectsDefinition = false;
@@ -1656,7 +1869,7 @@ function highlightPython(source) {
       continue;
     }
     if (/\d/.test(character) || (character === "." && /\d/.test(source[index + 1] || ""))) {
-      const number = source.slice(index).match(/^(?:0[xX][\da-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(?:\d[\d_]*(?:\.[\d_]*)?|\.[\d_]+)(?:[eE][+-]?[\d_]+)?j?)/)?.[0];
+      const number = matchPythonToken(PYTHON_NUMBER_PATTERN, source, index);
       if (number) {
         append(number, "py-number");
         index += number.length;
@@ -1664,13 +1877,13 @@ function highlightPython(source) {
       }
     }
     if (character === "@" && /[A-Za-z_]/.test(source[index + 1] || "")) {
-      const decorator = source.slice(index).match(/^@[A-Za-z_][\w.]*/)?.[0];
+      const decorator = matchPythonToken(PYTHON_DECORATOR_PATTERN, source, index);
       append(decorator, "py-decorator");
       index += decorator.length;
       continue;
     }
     if (/[A-Za-z_]/.test(character)) {
-      const word = source.slice(index).match(/^[A-Za-z_]\w*/)[0];
+      const word = matchPythonToken(PYTHON_WORD_PATTERN, source, index);
       let className = "";
       if (expectsDefinition) {
         className = "py-definition";
@@ -1687,7 +1900,7 @@ function highlightPython(source) {
       index += word.length;
       continue;
     }
-    const operator = source.slice(index).match(/^(?:\*\*|\/\/|<<|>>|:=|==|!=|<=|>=|->|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|[-+*/%@&|^~<>=:])/)?.[0];
+    const operator = matchPythonToken(PYTHON_OPERATOR_PATTERN, source, index);
     if (operator) {
       append(operator, "py-operator");
       index += operator.length;
@@ -1706,6 +1919,67 @@ function updateCodeHighlight() {
   elements.code_highlight.scrollLeft = elements.code_editor.scrollLeft;
 }
 
+function notifyCodeInput(editor = elements.code_editor) {
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function previousIndentStopOffset(whitespace) {
+  const column = codeVisualColumn(whitespace);
+  const targetColumn = Math.max(0, column - (column % EDITOR_INDENT_SIZE || EDITOR_INDENT_SIZE));
+  let currentColumn = 0;
+  for (let index = 0; index < whitespace.length; index += 1) {
+    currentColumn += whitespace[index] === "\t" ? EDITOR_INDENT_SIZE - currentColumn % EDITOR_INDENT_SIZE : 1;
+    if (currentColumn === targetColumn) return index + 1;
+  }
+  return 0;
+}
+
+function deleteCodeIndent() {
+  const editor = elements.code_editor;
+  const start = editor.selectionStart;
+  if (start !== editor.selectionEnd || start === 0) return false;
+  const lineStart = editor.value.lastIndexOf("\n", start - 1) + 1;
+  const indentation = editor.value.slice(lineStart, start);
+  if (!/^[ \t]+$/.test(indentation)) return false;
+  const removalStart = lineStart + previousIndentStopOffset(indentation);
+  editor.setRangeText("", removalStart, start, "end");
+  notifyCodeInput(editor);
+  return true;
+}
+
+function insertCodeBracketPair(opening) {
+  const closing = EDITOR_BRACKET_PAIRS[opening];
+  if (!closing) return false;
+  const editor = elements.code_editor;
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  const nextCharacter = editor.value[end] || "";
+  if (start === end && nextCharacter && !/[\s)\]};:,]/.test(nextCharacter)) return false;
+  const selected = editor.value.slice(start, end);
+  editor.setRangeText(`${opening}${selected}${closing}`, start, end, "start");
+  editor.setSelectionRange(start + 1, start === end ? start + 1 : end + 1, editor.selectionDirection || "none");
+  notifyCodeInput(editor);
+  return true;
+}
+
+function skipCodeClosingBracket(closing) {
+  const editor = elements.code_editor;
+  const start = editor.selectionStart;
+  if (start !== editor.selectionEnd || editor.value[start] !== closing) return false;
+  editor.setSelectionRange(start + 1, start + 1);
+  return true;
+}
+
+function deleteEmptyCodePair() {
+  const editor = elements.code_editor;
+  const start = editor.selectionStart;
+  const closing = EDITOR_BRACKET_PAIRS[editor.value[start - 1]];
+  if (start !== editor.selectionEnd || !closing || closing !== editor.value[start]) return false;
+  editor.setRangeText("", start - 1, start + 1, "end");
+  notifyCodeInput(editor);
+  return true;
+}
+
 function indentCodeSelection(outdent = false) {
   const editor = elements.code_editor;
   const value = editor.value;
@@ -1714,17 +1988,21 @@ function indentCodeSelection(outdent = false) {
   if (start === end) {
     if (!outdent) {
       const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-      const column = start - lineStart;
-      const spaces = " ".repeat(4 - column % 4);
+      const column = codeVisualColumn(value.slice(lineStart, start));
+      const spaces = " ".repeat(EDITOR_INDENT_SIZE - column % EDITOR_INDENT_SIZE);
       editor.setRangeText(spaces, start, end, "end");
     } else {
       const lineStart = value.lastIndexOf("\n", start - 1) + 1;
       const prefix = value.slice(lineStart, start);
-      const removable = prefix.match(/(?: {1,4}|\t)$/)?.[0].length || 0;
-      if (removable) editor.setRangeText("", start - removable, start, "end");
+      const removalStart = /^[ \t]+$/.test(prefix)
+        ? previousIndentStopOffset(prefix)
+        : prefix.endsWith("\t") ? prefix.length - 1 : prefix.length - Math.min(prefix.match(/ +$/)?.[0].length || 0, EDITOR_INDENT_SIZE);
+      const removable = prefix.length - removalStart;
+      if (!removable) return false;
+      editor.setRangeText("", start - removable, start, "end");
     }
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
-    return;
+    notifyCodeInput(editor);
+    return true;
   }
 
   const blockStart = value.lastIndexOf("\n", start - 1) + 1;
@@ -1735,19 +2013,21 @@ function indentCodeSelection(outdent = false) {
   let firstRemoved = 0;
   let totalRemoved = 0;
   const replacement = lines.map((line, index) => {
-    if (!outdent) return `    ${line}`;
-    const removed = line.match(/^(?: {1,4}|\t)/)?.[0].length || 0;
+    if (!outdent) return `${EDITOR_INDENT}${line}`;
+    const removed = line.startsWith("\t") ? 1 : Math.min(line.match(/^ +/)?.[0].length || 0, EDITOR_INDENT_SIZE);
     if (index === 0) firstRemoved = removed;
     totalRemoved += removed;
     return line.slice(removed);
   }).join("\n");
+  if (outdent && totalRemoved === 0) return false;
   editor.setRangeText(replacement, blockStart, blockEnd, "start");
   if (outdent) {
     editor.setSelectionRange(Math.max(blockStart, start - firstRemoved), Math.max(blockStart, end - totalRemoved));
   } else {
-    editor.setSelectionRange(start + (start > blockStart ? 4 : 0), end + lines.length * 4);
+    editor.setSelectionRange(start + (start > blockStart ? EDITOR_INDENT_SIZE : 0), end + lines.length * EDITOR_INDENT_SIZE);
   }
-  editor.dispatchEvent(new Event("input", { bubbles: true }));
+  notifyCodeInput(editor);
+  return true;
 }
 
 function toggleCodeComment() {
@@ -1794,7 +2074,7 @@ function toggleCodeComment() {
   const mappedEnd = start === end ? mappedStart : mapOffset(end, true);
   editor.setRangeText(replacement, blockStart, blockEnd, "start");
   editor.setSelectionRange(mappedStart, mappedEnd);
-  editor.dispatchEvent(new Event("input", { bubbles: true }));
+  notifyCodeInput(editor);
 }
 
 function insertIndentedNewline() {
@@ -1808,8 +2088,8 @@ function insertIndentedNewline() {
   const commentStart = statement.indexOf("#");
   const codeBeforeComment = (commentStart < 0 ? statement : statement.slice(0, commentStart)).trimEnd();
   const needsNestedIndent = codeBeforeComment.endsWith(":");
-  editor.setRangeText(`\n${indentation}${needsNestedIndent ? "    " : ""}`, start, end, "end");
-  editor.dispatchEvent(new Event("input", { bubbles: true }));
+  editor.setRangeText(`\n${indentation}${needsNestedIndent ? EDITOR_INDENT : ""}`, start, end, "end");
+  notifyCodeInput(editor);
 }
 
 function base64FromBytes(bytes) {
@@ -1956,26 +2236,19 @@ function importMarkdown(text) {
 }
 
 async function copyText(text) {
+  if (!navigator.clipboard?.writeText) throw new Error("当前浏览器未开放剪贴板写入权限");
   try {
     await navigator.clipboard.writeText(text);
-  } catch (error) {
-    const area = document.createElement("textarea");
-    area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
-    let copied = false;
-    document.body.append(area);
-    try {
-      area.select();
-      copied = document.execCommand("copy");
-    } finally {
-      area.remove();
-    }
-    if (!copied) throw new Error("浏览器未允许复制到剪贴板");
+  } catch {
+    throw new Error("浏览器未允许复制到剪贴板");
   }
 }
 
 const JUDGE_WORKER_SOURCE = `
 let pyodide = null;
 let harness = "";
+let formatterBundle = null;
+let formatterScript = "";
 
 // Pyodide rejects classic workers when importScripts is present. We deliberately
 // hide it and use dynamic import so the same worker also works from file:// URLs,
@@ -1991,6 +2264,8 @@ self.onmessage = async (event) => {
   if (message.type === "init") {
     try {
       harness = message.harness;
+      formatterBundle = message.formatterBundle;
+      formatterScript = message.formatterScript;
       const nativeFetch = self.fetch.bind(self);
       self.fetch = (input, options) => {
         const url = typeof input === "string" ? input : (input?.url || input?.href || String(input));
@@ -2016,9 +2291,21 @@ self.onmessage = async (event) => {
     try {
       pyodide.globals.set("payload_json", JSON.stringify(message.payload));
       const result = await pyodide.runPythonAsync(harness + "\\nRESULT_JSON");
-      self.postMessage({ type: "result", id: message.id, result: JSON.parse(result) });
+      self.postMessage({ type: "run-result", id: message.id, result: JSON.parse(result) });
     } catch (error) {
       self.postMessage({ type: "run-error", id: message.id, error: String(error && (error.stack || error.message) || error) });
+    }
+    return;
+  }
+  if (message.type === "format") {
+    try {
+      pyodide.globals.set("formatter_bundle_json", JSON.stringify(formatterBundle));
+      pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
+      pyodide.globals.set("formatter_source", message.source);
+      const result = await pyodide.runPythonAsync(formatterScript + "\\nFORMAT_RESULT_JSON");
+      self.postMessage({ type: "format-result", id: message.id, result: JSON.parse(result) });
+    } catch (error) {
+      self.postMessage({ type: "format-error", id: message.id, error: String(error && (error.stack || error.message) || error) });
     }
   }
 };
@@ -2028,8 +2315,8 @@ let decodedRuntime = null;
 let runtimeUrls = null;
 let judgeWorker = null;
 let judgeReady = null;
-let pendingRun = null;
-let runSequence = 0;
+let pendingPythonRequest = null;
+let pythonRequestSequence = 0;
 
 function setRuntimeStatus(status, message) {
   elements.runtime_status.className = `runtime-status ${status}`;
@@ -2067,13 +2354,21 @@ function runtimeObjectUrls() {
   return runtimeUrls;
 }
 
+function revokeRuntimeObjectUrls() {
+  if (!runtimeUrls) return;
+  for (const value of Object.values(runtimeUrls)) {
+    if (typeof value === "string" && value.startsWith("blob:")) URL.revokeObjectURL(value);
+  }
+  runtimeUrls = null;
+}
+
 function destroyJudge(reason) {
   if (judgeWorker) judgeWorker.terminate();
   judgeWorker = null;
   judgeReady = null;
-  if (pendingRun) {
-    pendingRun.reject(new Error(reason || "评测进程已终止"));
-    pendingRun = null;
+  if (pendingPythonRequest) {
+    pendingPythonRequest.reject(new Error(reason || "Python 进程已终止"));
+    pendingPythonRequest = null;
   }
 }
 
@@ -2091,13 +2386,14 @@ function startWorkerJudge() {
     const fail = (error) => {
       if (initTimer) clearTimeout(initTimer);
       revokeWorkerUrl();
+      revokeRuntimeObjectUrls();
       if (worker) worker.terminate();
       if (judgeWorker === worker) judgeWorker = null;
       if (!initialized) {
         initialized = true;
         reject(error);
       } else {
-        if (pendingRun) { pendingRun.reject(error); pendingRun = null; }
+        if (pendingPythonRequest) { pendingPythonRequest.reject(error); pendingPythonRequest = null; }
         judgeReady = null;
         setRuntimeStatus("", "Python 评测进程已停止，将在下次运行时重启");
       }
@@ -2114,14 +2410,15 @@ function startWorkerJudge() {
           initialized = true;
           clearTimeout(initTimer);
           revokeWorkerUrl();
+          revokeRuntimeObjectUrls();
           setRuntimeStatus("ready", "离线 Python 已就绪");
           resolve({ kind: "worker", worker });
         } else if (message.type === "init-error") {
           fail(new Error(message.error));
-        } else if (message.type === "result" && pendingRun?.id === message.id) {
-          const pending = pendingRun; pendingRun = null; pending.resolve(message.result);
-        } else if (message.type === "run-error" && pendingRun?.id === message.id) {
-          const pending = pendingRun; pendingRun = null; pending.reject(new Error(message.error));
+        } else if (pendingPythonRequest?.id === message.id && message.type === `${pendingPythonRequest.type}-result`) {
+          const pending = pendingPythonRequest; pendingPythonRequest = null; pending.resolve(message.result);
+        } else if (pendingPythonRequest?.id === message.id && message.type === `${pendingPythonRequest.type}-error`) {
+          const pending = pendingPythonRequest; pendingPythonRequest = null; pending.reject(new Error(message.error));
         }
       };
       worker.onerror = (event) => {
@@ -2129,7 +2426,13 @@ function startWorkerJudge() {
         const location = event.filename ? ` (${event.filename}:${event.lineno || 0})` : "";
         fail(new Error(`${event.message || "Python Worker 发生错误"}${location}`));
       };
-      worker.postMessage({ type: "init", runtime: runtimeObjectUrls(), harness: PYTHON_HARNESS });
+      worker.postMessage({
+        type: "init",
+        runtime: runtimeObjectUrls(),
+        harness: PYTHON_HARNESS,
+        formatterBundle: FORMATTER_BUNDLE,
+        formatterScript: PYTHON_FORMATTER,
+      });
     } catch (error) {
       fail(error);
     }
@@ -2138,6 +2441,7 @@ function startWorkerJudge() {
 
 async function startMainThreadJudge(workerError) {
   console.warn("Python Worker 不可用，切换到本页兼容模式：", workerError);
+  revokeRuntimeObjectUrls();
   setRuntimeStatus("loading", "兼容模式：正在解析内嵌模块…");
   const runtime = runtimeAssets();
   const loaderSource = runtime.loaderSource.replace(
@@ -2200,21 +2504,39 @@ async function evaluate(payload, timeoutMs) {
     const result = await backend.pyodide.runPythonAsync(PYTHON_HARNESS + "\nRESULT_JSON");
     return JSON.parse(result);
   }
-  if (pendingRun) throw new Error("已有评测正在运行");
-  const id = ++runSequence;
+  return requestPythonWorker(backend.worker, "run", { payload }, timeoutMs);
+}
+
+async function formatPythonSource(source, timeoutMs = 12000) {
+  const backend = await ensureJudge();
+  if (backend.kind === "main") {
+    backend.pyodide.globals.set("formatter_bundle_json", JSON.stringify(FORMATTER_BUNDLE));
+    backend.pyodide.globals.set("formatter_line_length", FORMATTER_BUNDLE.lineLength);
+    backend.pyodide.globals.set("formatter_source", source);
+    const result = await backend.pyodide.runPythonAsync(PYTHON_FORMATTER + "\nFORMAT_RESULT_JSON");
+    return JSON.parse(result);
+  }
+  return requestPythonWorker(backend.worker, "format", { source }, timeoutMs);
+}
+
+function requestPythonWorker(worker, type, payload, timeoutMs) {
+  if (pendingPythonRequest) throw new Error("已有 Python 任务正在运行");
+  const id = ++pythonRequestSequence;
+  const action = type === "format" ? "格式化" : "运行";
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      pendingRun = null;
+      pendingPythonRequest = null;
       destroyJudge();
-      setRuntimeStatus("", "上次运行超时，运行时将在下次重启");
-      reject(new Error(`运行超过 ${Math.round(timeoutMs / 1000)} 秒，已终止评测进程`));
+      setRuntimeStatus("", `上次${action}超时，运行时将在下次操作时重启`);
+      reject(new Error(`${action}超过 ${Math.round(timeoutMs / 1000)} 秒，已终止 Python 进程`));
     }, timeoutMs);
-    pendingRun = {
+    pendingPythonRequest = {
       id,
+      type,
       resolve: (value) => { clearTimeout(timer); resolve(value); },
       reject: (error) => { clearTimeout(timer); reject(error); },
     };
-    backend.worker.postMessage({ type: "run", id, payload });
+    worker.postMessage({ type, id, ...payload });
   });
 }
 
@@ -2222,15 +2544,6 @@ function prewarmJudge() {
   const start = () => ensureJudge().catch((error) => console.warn("离线 Python 预热失败：", error));
   if ("requestIdleCallback" in window) window.requestIdleCallback(start, { timeout: 1500 });
   else setTimeout(start, 500);
-}
-
-function releaseRuntimeUrls() {
-  if (judgeWorker) judgeWorker.terminate();
-  if (!runtimeUrls) return;
-  for (const [key, value] of Object.entries(runtimeUrls)) {
-    if (key.endsWith("Url") && typeof value === "string") URL.revokeObjectURL(value);
-  }
-  runtimeUrls = null;
 }
 
 function renderResults(result, mode) {
@@ -2261,17 +2574,119 @@ function renderResults(result, mode) {
   elements.result_panel.innerHTML = `<div class="result-summary"><span class="result-title ${result.passed ? "pass" : "fail"}">${title}</span><button id="close-results" class="button small ghost" type="button">收起</button></div><div class="case-list">${cases}</div>`;
 }
 
+function codePositionAtOffset(source, offset) {
+  const safeOffset = clamp(offset, 0, source.length);
+  const prefix = source.slice(0, safeOffset);
+  const lineStart = prefix.lastIndexOf("\n") + 1;
+  return {
+    line: (prefix.match(/\n/g) || []).length + 1,
+    column: safeOffset - lineStart + 1,
+  };
+}
+
+function codeOffsetAtPosition(source, position) {
+  const lines = source.split("\n");
+  const lineIndex = clamp(Number(position.line || 1) - 1, 0, lines.length - 1);
+  let offset = 0;
+  for (let index = 0; index < lineIndex; index += 1) offset += lines[index].length + 1;
+  return offset + clamp(Number(position.column || 1) - 1, 0, lines[lineIndex].length);
+}
+
+function focusCodePosition(line, column) {
+  const editor = elements.code_editor;
+  const offset = codeOffsetAtPosition(editor.value, { line, column });
+  editor.focus({ preventScroll: true });
+  editor.setSelectionRange(offset, Math.min(offset + 1, editor.value.length));
+  updateCursorPosition();
+}
+
+function restoreLastCodeFormat(redo = false) {
+  const change = lastFormatChange;
+  if (!change || change.slug !== currentSlug || change.undone !== redo) return false;
+  const editor = elements.code_editor;
+  const expectedCode = redo ? change.before : change.after;
+  if (editor.value !== expectedCode) return false;
+  const code = redo ? change.after : change.before;
+  const selection = redo ? change.afterSelection : change.beforeSelection;
+  editor.value = code;
+  editor.setSelectionRange(selection.start, selection.end, selection.direction || "none");
+  change.undone = !redo;
+  notifyCodeInput(editor);
+  syncCurrentEditors(true);
+  toast(redo ? "已重新应用 Black 格式化" : "已撤销 Black 格式化");
+  return true;
+}
+
 function setEvaluationBusy(busy, mode) {
   evaluationInProgress = busy;
   elements.result_panel.setAttribute("aria-busy", String(busy));
   for (const button of [elements.custom_case_button, elements.run_button, elements.submit_button]) button.disabled = busy;
+  elements.format_code_button.disabled = busy;
   elements.run_button.textContent = busy && mode === "sample" ? "运行中…" : "运行";
   elements.submit_button.textContent = busy && mode === "submit" ? "提交中…" : "提交";
+}
+
+function setFormattingBusy(busy) {
+  formattingInProgress = busy;
+  elements.code_editor.readOnly = busy;
+  elements.code_editor.setAttribute("aria-busy", String(busy));
+  for (const button of [elements.format_code_button, elements.custom_case_button, elements.run_button, elements.submit_button]) button.disabled = busy;
+  elements.format_code_button.textContent = busy ? "格式化中…" : "格式化";
+}
+
+async function formatCurrentCode() {
+  if (!currentSlug) return;
+  if (evaluationInProgress) return toast("评测正在运行，请稍候", "error");
+  if (formattingInProgress) return;
+  const slug = currentSlug;
+  const editor = elements.code_editor;
+  const source = editor.value;
+  if (!source.trim()) return toast("没有可格式化的 Python 代码", "error");
+  const selection = {
+    startOffset: editor.selectionStart,
+    endOffset: editor.selectionEnd,
+    start: codePositionAtOffset(source, editor.selectionStart),
+    end: codePositionAtOffset(source, editor.selectionEnd),
+    direction: editor.selectionDirection,
+  };
+  setFormattingBusy(true);
+  try {
+    const result = await formatPythonSource(source);
+    if (currentSlug !== slug || editor.value !== source) return toast("题目或代码已经变化，未应用格式化结果", "error");
+    if (!result?.ok) {
+      if (result?.kind === "syntax" && Number.isInteger(result.line) && Number.isInteger(result.column)) {
+        focusCodePosition(result.line, result.column);
+        return toast(`第 ${result.line} 行、第 ${result.column} 列附近存在语法错误`, "error");
+      }
+      return toast(`格式化失败：${result?.error || "格式化器返回了无效结果"}`, "error");
+    }
+    if (!result.changed) return toast(`代码已经符合 Black ${result.version} 格式`);
+    const afterStart = codeOffsetAtPosition(result.code, selection.start);
+    const afterEnd = codeOffsetAtPosition(result.code, selection.end);
+    editor.setRangeText(result.code, 0, source.length, "preserve");
+    editor.setSelectionRange(afterStart, afterEnd, selection.direction || "none");
+    lastFormatChange = {
+      slug,
+      before: source,
+      after: result.code,
+      beforeSelection: { start: selection.startOffset, end: selection.endOffset, direction: selection.direction },
+      afterSelection: { start: afterStart, end: afterEnd, direction: selection.direction },
+      undone: false,
+    };
+    notifyCodeInput(editor);
+    syncCurrentEditors(true);
+    toast(`已使用 Black ${result.version} 格式化`);
+  } catch (error) {
+    if (currentSlug === slug) toast(error.message || "代码格式化失败", "error");
+  } finally {
+    setFormattingBusy(false);
+  }
 }
 
 async function runEvaluation(mode) {
   if (!currentSlug) return;
   if (evaluationInProgress) return toast("评测正在运行，请稍候", "error");
+  if (formattingInProgress) return toast("代码正在格式化，请稍候", "error");
   const slug = currentSlug;
   const solution = SOLUTIONS[slug];
   const code = elements.code_editor.value;
@@ -2386,9 +2801,33 @@ elements.code_editor.addEventListener("scroll", () => {
 elements.code_editor.addEventListener("click", updateCursorPosition);
 elements.code_editor.addEventListener("keyup", updateCursorPosition);
 elements.code_editor.addEventListener("keydown", (event) => {
+  const plainEditingKey = !event.metaKey && !event.ctrlKey && !event.altKey && !event.isComposing;
+  const historyModifier = (event.metaKey || event.ctrlKey) && !event.altKey;
+  const historyKey = event.key.toLowerCase();
+  const formatRedo = historyModifier && ((historyKey === "z" && event.shiftKey) || (historyKey === "y" && !event.shiftKey));
+  if (formatRedo && restoreLastCodeFormat(true)) {
+    event.preventDefault();
+    return;
+  }
+  if (historyModifier && historyKey === "z" && !event.shiftKey && restoreLastCodeFormat(false)) {
+    event.preventDefault();
+    return;
+  }
   if (event.key === "/" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
     event.preventDefault();
     toggleCodeComment();
+    return;
+  }
+  if (event.key === "Backspace" && plainEditingKey && (deleteEmptyCodePair() || deleteCodeIndent())) {
+    event.preventDefault();
+    return;
+  }
+  if (plainEditingKey && EDITOR_BRACKET_PAIRS[event.key] && insertCodeBracketPair(event.key)) {
+    event.preventDefault();
+    return;
+  }
+  if (plainEditingKey && EDITOR_CLOSING_BRACKETS.has(event.key) && skipCodeClosingBracket(event.key)) {
+    event.preventDefault();
     return;
   }
   if (event.key === "Tab") {
@@ -2408,6 +2847,7 @@ elements.code_editor.addEventListener("keydown", (event) => {
 elements.notes_editor.addEventListener("input", () => { touchRecord("note"); showSavePulse(elements.notes_save_state); });
 elements.font_down_button.addEventListener("click", () => changeEditorSize(-1));
 elements.font_up_button.addEventListener("click", () => changeEditorSize(1));
+elements.format_code_button.addEventListener("click", formatCurrentCode);
 elements.reset_code_button.addEventListener("click", () => {
   if (!currentSlug || !confirm("确定把当前代码恢复为初始模板吗？个人笔记和进度不会改变。")) return;
   elements.code_editor.value = bySlug.get(currentSlug).problem.starterCode; updateCodeHighlight(); touchRecord("code"); updateCursorPosition(); toast("已恢复初始模板");
@@ -2497,18 +2937,24 @@ function finishPaneResize(event) {
 }
 elements.pane_resizer.addEventListener("pointerup", finishPaneResize);
 elements.pane_resizer.addEventListener("pointercancel", finishPaneResize);
-elements.pane_resizer.addEventListener("dblclick", () => setProblemPaneWidth(43));
+elements.pane_resizer.addEventListener("dblclick", () => setProblemPaneWidth(PROBLEM_PANE_DEFAULT));
 elements.pane_resizer.addEventListener("keydown", (event) => {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  const current = Number(state.settings.problemPaneWidth) || 43;
-  const target = event.key === "Home" ? 28
-    : event.key === "End" ? 68
+  const current = Number(state.settings.problemPaneWidth) || PROBLEM_PANE_DEFAULT;
+  const target = event.key === "Home" ? PROBLEM_PANE_MIN
+    : event.key === "End" ? PROBLEM_PANE_MAX
       : current + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 5 : 2);
   setProblemPaneWidth(target);
 });
 document.addEventListener("keydown", (event) => {
   const modifier = event.metaKey || event.ctrlKey;
+  if (!privacyMode && currentSlug && event.key.toLowerCase() === "f" && event.shiftKey && event.altKey && !modifier) {
+    event.preventDefault();
+    resetPrivacyShortcut();
+    formatCurrentCode();
+    return;
+  }
   if (modifier && event.key.toLowerCase() === "s") {
     event.preventDefault();
     resetPrivacyShortcut();
@@ -2561,7 +3007,6 @@ mobileWorkspaceMedia.addEventListener("change", () => {
   updateProblemToggleLabel(elements.study_view.classList.contains("problem-collapsed"));
 });
 window.addEventListener("pagehide", () => syncCurrentEditors(true));
-window.addEventListener("beforeunload", releaseRuntimeUrls);
 
 applyTheme(state.settings.theme);
 applyProblemExpansionPreference(state.settings.expandProblemByDefault, false);
