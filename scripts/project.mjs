@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile, rename, writeFile } from "node:fs/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import vm from "node:vm";
 import solutions from "../src/solutions.mjs";
@@ -264,6 +264,66 @@ function testCustomCases() {
   console.log("PASS 函数题、设计题与无效自定义样例校验");
 }
 
+function testAcmMode() {
+  const solution = solutions["two-sum"];
+  const correct = payloadFor(solution, "import sys\ndata = iter(map(int, sys.stdin.buffer.read().split()))\nn = next(data)\nnums = [next(data) for _ in range(n)]\ntarget = next(data)\nseen = {}\nfor i, value in enumerate(nums):\n    if target - value in seen:\n        print(seen[target - value], i)\n        break\n    seen[value] = i\nprint('checked', file=sys.stderr)", 2);
+  correct.mode = "acm";
+  correct.cases.forEach((item) => { item.stdin = `${item.value[0].length}\n${item.value[0].join(" ")}\n${item.value[1]}`; });
+  const broken = payloadFor(solution, "print(missing_name)", 1);
+  broken.mode = "acm";
+  broken.cases[0].stdin = "4\n2 7 11 15\n9";
+  const payloads = [correct, broken];
+  const parsed = pythonResults(payloads, "ACM 模式执行失败");
+  const valid = parsed?.[0]?.passed && parsed[0].results.length === 2
+    && parsed[0].results.every((item) => item.passed && item.stderr === "checked\n")
+    && parsed[0].results[0].input === "4\n2 7 11 15\n9"
+    && parsed?.[1]?.passed === false && parsed[1].results[0].error.includes("NameError");
+  if (!valid) throw new Error(`ACM 模式结果异常：${JSON.stringify(parsed)}`);
+  console.log("PASS ACM 模式复用内置用例、标准输入输出、标准错误与异常捕获");
+}
+
+function testAcmReferenceSolutions(html) {
+  const start = html.indexOf("const acmSchemaCache");
+  const end = html.indexOf("function customCaseTemplateFor", start);
+  if (start < 0 || end <= start) throw new Error("无法提取 ACM 参考题解生成器");
+  const context = {
+    SOLUTIONS: solutions,
+    state: { settings: { codeMode: "acm" } },
+  };
+  const script = `${html.slice(start, end)}
+globalThis.payloads = Object.entries(SOLUTIONS).map(([slug, solution]) => {
+  const { code: referenceCode, tests, note: _note, complexity: _complexity, ...meta } = solution;
+  return {
+    slug,
+    userCode: acmReferenceCodeFor(solution),
+    referenceCode,
+    meta,
+    mode: "acm",
+    cases: tests.map((value, index) => ({
+      index,
+      visible: index < 2,
+      value,
+      stdin: formatAcmCase(value, solution),
+    })),
+  };
+});`;
+  new vm.Script(script, { filename: "acm-reference-solutions.test.js" }).runInNewContext(context);
+  const generatedBySlug = Object.fromEntries(context.payloads.map((payload) => [payload.slug, payload.userCode]));
+  const basicReference = generatedBySlug["two-sum"];
+  if ((basicReference.match(/\n/g) || []).length + 1 > 20
+    || /_read_matrix|_print_answer|class ListNode|class TreeNode/.test(basicReference)
+    || /class ListNode|class Node/.test(generatedBySlug["invert-binary-tree"])) {
+    throw new Error("ACM 参考题解包含与当前题目无关的通用框架代码");
+  }
+  const parsed = pythonResults(context.payloads, "ACM 参考题解批量执行失败");
+  const failures = parsed.flatMap((result, index) => result?.passed ? [] : [
+    `${context.payloads[index].slug}: ${JSON.stringify(result)}`,
+  ]);
+  if (failures.length) throw new Error(`ACM 参考题解失败 ${failures.length} 题：\n${failures.join("\n")}`);
+  const caseCount = context.payloads.reduce((total, payload) => total + payload.cases.length, 0);
+  console.log(`PASS ${problems.length} 道 ACM 完整参考程序通过全部 ${caseCount} 个内置样例`);
+}
+
 function verifyExportHelpers(html, check) {
   const start = html.indexOf("function base64FromBytes");
   const end = html.indexOf("function exportMarkdown", start);
@@ -317,11 +377,12 @@ globalThis.inconsistent = normalizeRecord({ status: "todo", attempts: 2, passedA
   check(JSON.stringify(recordContext.inconsistent) === JSON.stringify({ status: "attempted", attempts: 2, note: "", updatedAt: null, passedAt: null }), "本地状态加载时会统一提交次数、题目状态和通过时间");
 
   const settingsContext = {
-    DEFAULT_SETTINGS: Object.freeze({ theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }),
+    DEFAULT_SETTINGS: Object.freeze({ theme: "dark", editorSize: 14, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43, codeMode: "core" }),
     EDITOR_SIZE_MIN: 12,
     EDITOR_SIZE_MAX: 20,
     PROBLEM_PANE_MIN: 28,
     PROBLEM_PANE_MAX: 68,
+    CODE_MODES: new Set(["core", "acm"]),
     clamp: (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value)),
     bySlug: new Map([["first", true]]),
   };
@@ -329,10 +390,10 @@ globalThis.inconsistent = normalizeRecord({ status: "todo", attempts: 2, passedA
 ${html.slice(settingsStart, loadStateStart)}\nglobalThis.normalized = normalizeSettings({
     theme: "invalid", editorSize: 99, lastSlug: "missing", expandProblemByDefault: "true", problemPaneWidth: null,
   });
-globalThis.valid = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 });`;
+globalThis.valid = normalizeSettings({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60, codeMode: "acm" });`;
   new vm.Script(settingsScript, { filename: "state-settings.test.js" }).runInNewContext(settingsContext);
-  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43 }), "损坏的界面设置会回退到默认展开题面和分栏宽度");
-  check(JSON.stringify(settingsContext.valid) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60 }), "有效界面设置会直接保留且不再经过旧版迁移分支");
+  check(JSON.stringify(settingsContext.normalized) === JSON.stringify({ theme: "dark", editorSize: 20, lastSlug: "first", expandProblemByDefault: true, problemPaneWidth: 43, codeMode: "core" }), "损坏的界面设置会回退到默认展开题面、分栏宽度和代码模式");
+  check(JSON.stringify(settingsContext.valid) === JSON.stringify({ theme: "light", editorSize: 16, lastSlug: "first", expandProblemByDefault: false, problemPaneWidth: 60, codeMode: "acm" }), "有效界面设置会直接保留且不再经过旧版迁移分支");
 
   const progressStart = html.indexOf("function resetProgressRecords", loadStateStart);
   const summaryStart = html.indexOf("function renderSummary", progressStart);
@@ -413,6 +474,40 @@ globalThis.last = createPrivacyPageModel(-1, () => 1);`;
     && context.first.preset.schedule.length === 4 && context.second.preset.schedule.length === 4, "隐私页包含四套完整日程模板并可覆盖随机边界");
   check(context.first.completed === 8 && context.first.remaining === 3 && context.first.progress === 73
     && context.first.note && context.first.progressLabel, "随机进度由完成数和待处理数一致计算");
+}
+
+function verifyAcmCaseHelpers(html, check) {
+  const start = html.indexOf("const acmSchemaCache");
+  const end = html.indexOf("function showModal", start);
+  check(start >= 0 && end > start, "可提取 ACM 题目级输入格式辅助函数");
+  const context = {
+    SOLUTIONS: solutions,
+    state: { settings: { codeMode: "acm" } },
+    MAX_CUSTOM_CASE_LENGTH: 50_000,
+  };
+  const script = `${html.slice(start, end)}
+const failures = [];
+let total = 0;
+for (const [slug, solution] of Object.entries(SOLUTIONS)) {
+  for (const [index, original] of solution.tests.entries()) {
+    total += 1;
+    try {
+      const input = formatAcmCase(original, solution);
+      const parsed = solution.kind === "class" ? parseAcmClassCase(input, solution) : parseAcmMethodCase(input, solution);
+      if (JSON.stringify(parsed) !== JSON.stringify(original)) failures.push({ slug, index, input, parsed });
+    } catch (error) {
+      failures.push({ slug, index, error: error.message });
+    }
+  }
+}
+globalThis.result = {
+  failures, total,
+  twoSum: formatAcmCase(SOLUTIONS["two-sum"].tests[0], SOLUTIONS["two-sum"]),
+  lru: formatAcmCase(SOLUTIONS["lru-cache"].tests[0], SOLUTIONS["lru-cache"]),
+};`;
+  new vm.Script(script, { filename: "acm-cases.test.js" }).runInNewContext(context);
+  check(context.result.failures.length === 0 && context.result.total === Object.values(solutions).reduce((total, solution) => total + solution.tests.length, 0), "全部内置用例均可在题目级 ACM 文本格式中无损往返");
+  check(context.result.twoSum === "4\n2 7 11 15\n9" && context.result.lru.startsWith("10\nLRUCache 2\nput 1 1"), "数组参数与设计题使用常见的长度、空格分隔和逐行操作格式");
 }
 
 function verifyEditorHelpers(html, check) {
@@ -554,6 +649,12 @@ async function testPyodide() {
     const output = await pyodide.runPythonAsync(`${pythonHarness}\nRESULT_JSON`);
     if (!JSON.parse(output).passed) throw new Error(`${slug} 在内嵌 Python 运行时中未通过`);
   }
+  const acmPayload = payloadFor(solutions["two-sum"], "import sys\ndata = iter(map(int, sys.stdin.buffer.read().split()))\nn = next(data)\nnums = [next(data) for _ in range(n)]\ntarget = next(data)\nfor i, a in enumerate(nums):\n    for j in range(i + 1, len(nums)):\n        if a + nums[j] == target:\n            print(i, j)\n            raise SystemExit", 2);
+  acmPayload.mode = "acm";
+  acmPayload.cases.forEach((item) => { item.stdin = `${item.value[0].length}\n${item.value[0].join(" ")}\n${item.value[1]}`; });
+  pyodide.globals.set("payload_json", JSON.stringify(acmPayload));
+  const acmOutput = JSON.parse(await pyodide.runPythonAsync(`${pythonHarness}\nRESULT_JSON`));
+  if (!acmOutput.passed || acmOutput.results.length !== 2) throw new Error(`ACM 模式在内嵌 Python 运行时中失败：${JSON.stringify(acmOutput)}`);
   const formatterBundle = await loadFormatterBundle();
   pyodide.globals.set("formatter_bundle_json", JSON.stringify(formatterBundle));
   pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
@@ -567,81 +668,8 @@ async function testPyodide() {
   if (invalid.ok || invalid.kind !== "syntax" || invalid.line !== 1 || invalid.column !== 11) {
     throw new Error(`Black 语法错误定位测试失败：${JSON.stringify(invalid)}`);
   }
-  console.log(`PASS Pyodide ${pyodide.runPython("import sys; sys.version.split()[0]")} 与 ${slugs.length} 类题型`);
+  console.log(`PASS Pyodide ${pyodide.runPython("import sys; sys.version.split()[0]")}、${slugs.length} 类题型与 ACM 模式`);
   console.log(`PASS Black ${formatted.version} 离线格式化与语法错误定位`);
-}
-
-async function testMemoryRuntime() {
-  const [loaderRaw, asmRaw, wasmBuffer, stdlibBuffer, lockText] = await Promise.all([
-    readFile(new URL("pyodide.mjs", runtimeUrl), "utf8"),
-    readFile(new URL("pyodide.asm.mjs", runtimeUrl), "utf8"),
-    readFile(new URL("pyodide.asm.wasm", runtimeUrl)),
-    readFile(new URL("python_stdlib.zip", runtimeUrl)),
-    readFile(new URL("pyodide-lock.json", runtimeUrl), "utf8"),
-  ]);
-  const loaderSource = loaderRaw.replace(
-    /export\{dt as loadPyodide,U as version\};?/,
-    "return { loadPyodide: dt, version: U };",
-  );
-  const asmSource = asmRaw
-    .replaceAll("import.meta.url", JSON.stringify("https://offline.local/pyodide.asm.mjs"))
-    .replace(/export default _createPyodideModule;?/, "return _createPyodideModule;");
-  const wasmBytes = new Uint8Array(wasmBuffer);
-  const stdlibBytes = new Uint8Array(stdlibBuffer);
-  const originalProcess = globalThis.process;
-
-  globalThis.process = undefined;
-  globalThis.window = globalThis;
-  globalThis.document = { createElement: () => ({}) };
-  globalThis.sessionStorage = {};
-  globalThis.location = new URL("https://offline.local/index.html");
-  globalThis.addEventListener = () => {};
-  globalThis.removeEventListener = () => {};
-  const loader = new Function(loaderSource)();
-  const createPyodideModule = new Function(asmSource)();
-  const nativeFetch = globalThis.fetch.bind(globalThis);
-  globalThis.fetch = (input, options) => {
-    const url = typeof input === "string" ? input : (input?.url || input?.href || String(input));
-    if (url === "https://offline.local/pyodide.asm.wasm") {
-      return Promise.resolve(new Response(wasmBytes, { status: 200, headers: { "Content-Type": "application/wasm" } }));
-    }
-    if (url === "https://offline.local/python_stdlib.zip") {
-      return Promise.resolve(new Response(stdlibBytes, { status: 200, headers: { "Content-Type": "application/zip" } }));
-    }
-    return nativeFetch(input, options);
-  };
-
-  try {
-    const pyodide = await loader.loadPyodide({
-      indexURL: "https://offline.local/",
-      stdLibURL: "https://offline.local/python_stdlib.zip",
-      lockFileContents: JSON.parse(lockText),
-      packageBaseUrl: "https://offline.local/",
-      createPyodideModule,
-    });
-    const answer = pyodide.runPython("sum(i * i for i in range(10))");
-    if (answer !== 285) throw new Error(`内存兼容模式结果异常：${answer}`);
-    const formatterBundle = await loadFormatterBundle();
-    pyodide.globals.set("formatter_bundle_json", JSON.stringify(formatterBundle));
-    pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
-    pyodide.globals.set("formatter_source", "values=[1,2,3]\n");
-    const formatted = JSON.parse(await pyodide.runPythonAsync(`${pythonFormatter}\nFORMAT_RESULT_JSON`));
-    if (!formatted.ok || formatted.code !== "values = [1, 2, 3]\n") throw new Error(`兼容模式格式化异常：${JSON.stringify(formatted)}`);
-    originalProcess.stdout.write(`PASS 内存兼容模式 Python ${pyodide.runPython("import sys; sys.version.split()[0]")}\n`);
-    originalProcess.exit(0);
-  } catch (error) {
-    originalProcess.stderr.write(`${error?.stack || error}\n`);
-    originalProcess.exit(1);
-  }
-}
-
-function testMemoryRuntimeInChild() {
-  const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url), "--memory-runtime"], {
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  process.stdout.write(result.stdout);
-  if (result.status !== 0) throw new Error(result.stderr || "内存兼容模式测试失败");
 }
 
 async function verifyArtifact(html) {
@@ -673,8 +701,15 @@ async function verifyArtifact(html) {
   const staticHtml = html.slice(0, html.indexOf("<script>"));
   const htmlIds = [...staticHtml.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
+  const appHeader = staticHtml.slice(staticHtml.indexOf('<header id="app-header"'), staticHtml.indexOf("</header>", staticHtml.indexOf('<header id="app-header"')));
+  const editorToolbar = staticHtml.slice(staticHtml.indexOf('<div class="editor-toolbar">'), staticHtml.indexOf('<div class="code-editor-shell">'));
+  check(appHeader.includes('id="core-mode-button"') && appHeader.includes('id="acm-mode-button"')
+    && appHeader.indexOf('class="offline-pill"') < appHeader.indexOf('class="header-actions"')
+    && appHeader.indexOf('id="auto-expand-button"') < appHeader.indexOf('class="code-mode-switch')
+    && appHeader.indexOf('class="code-mode-switch') < appHeader.indexOf('id="import-button"')
+    && !editorToolbar.includes("code-mode-switch"), "离线状态靠近品牌，代码模式切换器位于默认展开之后且已从编辑器工具栏移除");
   check(!staticHtml.includes("-webkit-") && !html.includes("document.execCommand") && !html.includes('addEventListener("beforeunload"'), "已移除私有样式、废弃剪贴板接口与无效卸载监听");
-  check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64"), "包含 Markdown 导入导出协议");
+  check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64") && html.includes("acmCodeBase64"), "包含核心代码与 ACM 工作区的 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
   check(!html.includes("const STATE_VERSION") && html.includes("const DEFAULT_SETTINGS") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且状态设置使用单一规范化路径");
   check(html.includes('id="pane-resizer"') && html.includes("function constrainedProblemPaneWidth") && html.includes("setProblemPaneWidth") && html.includes("PROBLEM_PANE_DEFAULT = 43"), "题目和代码分栏支持统一约束、调整宽度并持久化");
@@ -685,7 +720,7 @@ async function verifyArtifact(html) {
   check(html.includes("black.format_file_contents") && html.includes("fast=False") && formatterManifest.packages.every(({ filename }) => html.includes(filename)), "Black 及校验过的纯 Python 依赖已完整内嵌");
   check(html.includes("第 ${result.line} 行、第 ${result.column} 列附近存在语法错误") && html.includes("codeOffsetAtPosition"), "格式化语法错误会定位具体行列且不会覆盖原代码");
   check(html.includes('id="privacy-view"') && html.includes("function createPrivacyPageModel") && html.includes("const privacyDocumentTitle = renderPrivacyPage()") && html.includes("setPrivacyMode(!privacyMode)"), "双击回车可切换随机内容的独立隐私伪装页并隐藏真实标题");
-  check(!html.includes("`${problem.frontendId}. ${problem.title} · Python 离线训练场`") && html.includes('document.title = "Python 离线训练场"'), "浏览器标签始终使用固定的训练场标题");
+  check(!html.includes("`${problem.frontendId}. ${problem.title} · Python 离线训练场`") && html.includes("<title>Python 离线训练场</title>"), "浏览器标签始终使用固定的训练场标题");
   check(html.includes('[data-theme="dark"] .privacy-view') && html.includes("--privacy-bg-top") && html.includes("--privacy-card"), "隐私伪装页会跟随当前深色或浅色主题");
   check(html.includes('history.replaceState(history.state, "", location.href.split("#")[0])') && html.includes("privacyRestoreHash"), "隐私伪装页会隐藏并恢复地址栏题目标识");
   check(html.includes("privacyRestoreScrollX") && html.includes("window.scrollTo(privacyRestoreScrollX, privacyRestoreScrollY)") && html.includes("elements.privacy_view.inert = true"), "隐私伪装页会恢复滚动位置并隔离不可见区域焦点");
@@ -694,12 +729,13 @@ async function verifyArtifact(html) {
   check(html.includes('id="reset-progress-button"') && html.includes('id="reset-progress-modal"') && html.includes("function resetProgressRecords") && html.includes("个人代码、笔记和自定义样例不会删除"), "目录支持确认后一键重置全部提交进度且保留个人内容");
   check(html.includes("const savePulseTimers = new WeakMap()") && html.includes('document.visibilityState === "hidden"') && html.includes('window.addEventListener("pagehide"'), "保存提示去抖且页面进入后台时立即持久化");
   check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>') && html.includes('id="custom-case-button"'), "运行与提交操作支持添加自定义样例");
+  check(html.includes("execute_acm") && html.includes('mode: codeMode === "acm"') && html.includes("solution.tests.slice"), "ACM 模式支持独立代码并复用运行、提交及自定义样例评测");
   check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
   check(html.includes("prewarmJudge()") && html.includes("Python 运行时已内置，将自动准备"), "Python 运行时自动预热");
-  check(html.includes("function revokeRuntimeObjectUrls") && html.includes("revokeRuntimeObjectUrls();"), "运行时 Blob URL 会在初始化完成或失败后及时释放");
-  check(html.includes("startMainThreadJudge") && !html.includes('new Worker(workerUrl, { type: "module"'), "包含 file:// 兼容回退");
-  check(html.includes("new Function(`${loaderSource}") && html.includes("new Response(runtime.wasmBytes"), "兼容模式从内存启动 Python");
+  check(html.includes("function createRuntimeUrl") && html.includes("runtimeUrls.forEach((url) => URL.revokeObjectURL(url))")
+    && !html.includes("function runtimeObjectUrls"), "运行时 Blob URL 在评测 Worker 内创建并及时释放，兼容 file 协议的不透明来源");
+  check(!html.includes("startMainThreadJudge") && !html.includes("runMainThreadPython") && !html.includes("new Function(`${loaderSource}"), "已移除重复且会阻塞页面的主线程 Python 兼容后端");
   check(Buffer.byteLength(html) > 15 * 1024 * 1024, "Python、题面和图片已打包进单文件");
   const scriptMatch = html.match(/<script>([\s\S]*)<\/script>\s*<\/body>/i);
   check(Boolean(scriptMatch), "主应用脚本已内嵌");
@@ -709,6 +745,7 @@ async function verifyArtifact(html) {
   verifyStateHelpers(html, check);
   verifyPrivacyShortcutHelpers(html, check);
   verifyPrivacyRandomizerHelpers(html, check);
+  verifyAcmCaseHelpers(html, check);
   verifyEditorHelpers(html, check);
   verifySyntaxHighlighting(html, check);
   verifyFormatterUiHelpers(html, check);
@@ -744,17 +781,16 @@ async function verifyCompactArtifact(html) {
 
 const command = process.argv[2];
 
-if (process.argv.includes("--memory-runtime")) {
-  await testMemoryRuntime();
-} else if (command === "build") {
+if (command === "build") {
   await buildArtifact();
 } else if (command === "test") {
   const html = await buildArtifact();
   testReferenceSolutions();
   testNegativeCases();
   testCustomCases();
+  testAcmMode();
+  testAcmReferenceSolutions(html);
   await testPyodide();
-  testMemoryRuntimeInChild();
   await verifyArtifact(html);
   await verifyCompactArtifact(html);
   console.log("全部测试通过");

@@ -32,12 +32,14 @@
 - [`lc_offline_compact.html`](./lc_offline_compact.html)：压缩版，体积更小，推荐使用。
 - [`lc_offline.html`](./lc_offline.html)：标准版，适合不支持 `DecompressionStream` 的浏览器。
 
-两个版本都内嵌题目、图片、题解、评测器和 Python 运行时，不依赖其他文件，也不会联网加载资源。推荐使用最新版 Chrome 或 Edge；使用其他浏览器时建议定期导出 Markdown 备份。
+两个版本都内嵌题目、图片、题解、评测器和 Python 运行时，不依赖其他文件，也不会联网加载资源。Python 评测在独立 Web Worker 中运行，请使用最新版 Chrome、Edge、Safari 或 Firefox；建议定期导出 Markdown 备份。
 
 ## 功能
 
 - 17 个专题、100 道 LC 中文题目，包含题面、示意图和参考题解
 - 完整离线的 Python 运行时、本地评测及自定义样例
+- 代码区可切换核心模式与 ACM 标准输入输出模式，两套代码分别自动保存并共用运行、提交和自定义样例；参考题解会同步切换为逐题生成的精简 ACM 完整程序
+- ACM 模式按题目生成纯文本输入说明与示例，数组带长度、矩阵带行列数、设计题逐行输入操作
 - Python 语法高亮、缩进辅助、括号补全和 Black 格式化
 - 适配桌面与移动端的题面、代码和笔记工作区
 - 自动保存代码、笔记与进度，支持 Markdown 导入导出

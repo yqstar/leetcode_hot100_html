@@ -203,6 +203,7 @@ body.privacy-mode > :not(.privacy-view) { display: none !important; }
   backdrop-filter: blur(18px);
 }
 
+.header-leading { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand-mark {
   display: grid;
@@ -475,6 +476,11 @@ body.resizing-panes, body.resizing-panes * { cursor: col-resize !important; user
 .official-content table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; }
 .official-content td, .official-content th { padding: 8px 10px; border: 1px solid var(--line); }
 .official-content a { color: var(--accent); }
+.acm-format-card { margin-top: 28px; padding: 18px; border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius: 13px; background: var(--accent-soft); }
+.acm-format-card h2 { margin: 0 0 12px; font-size: 17px; }
+.acm-format-card h3 { margin: 16px 0 7px; color: var(--muted); font-size: 12px; }
+.acm-format-card p { margin: 0; line-height: 1.7; }
+.acm-format-card pre { margin: 0; padding: 12px; overflow: auto; border-radius: 9px; background: var(--surface); font: 12px/1.6 "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; }
 .source-note { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.7; }
 
 .workspace-pane { display: flex; flex-direction: column; }
@@ -488,6 +494,9 @@ body.resizing-panes, body.resizing-panes * { cursor: col-resize !important; user
 .editor-toolbar, .notes-toolbar, .solution-toolbar { flex: 0 0 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
 .toolbar-group { display: flex; align-items: center; gap: 7px; }
 .language-pill { color: var(--accent); padding: 5px 9px; border-radius: 7px; background: var(--accent-soft); font-size: 11px; font-weight: 750; }
+.code-mode-switch { height: 38px; display: inline-flex; flex: 0 0 auto; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+.code-mode-button { min-height: 30px; padding: 5px 11px; color: var(--muted); border: 0; border-radius: 6px; background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
+.code-mode-button.active { color: var(--accent); background: var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
 .save-state { color: var(--faint); font-size: 11px; }
 .font-control { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .font-control button { width: 28px; height: 27px; border: 0; background: var(--surface); cursor: pointer; }
@@ -647,11 +656,9 @@ body.modal-open { overflow: hidden; }
   .study-view.problem-collapsed .study-layout { grid-template-columns: minmax(0, 1fr); }
   .study-view.problem-collapsed .problem-pane { display: none; }
   .study-view:not(.problem-collapsed) .workspace-pane { display: none; }
-  .problem-pane { max-height: none; overflow: auto; }
+  .problem-pane { max-height: none; }
   .problem-content { padding: 26px 20px 45px; }
-  .workspace-pane { min-height: 0; }
   .pane-resizer { display: none; }
-  .study-title-mini { display: none; }
   .study-actions .button.ghost { display: none; }
 }
 
@@ -668,6 +675,8 @@ body.modal-open { overflow: hidden; }
   .brand { gap: 8px; }
   .app-header { gap: 8px; }
   .header-actions { gap: 4px; }
+  .code-mode-switch { height: 34px; padding: 2px; }
+  .code-mode-button { min-height: 28px; padding: 3px 7px; font-size: 10px; }
   .summary-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
   .summary-card { padding: 15px; }
   .summary-value { font-size: 23px; }
@@ -687,6 +696,14 @@ body.modal-open { overflow: hidden; }
   .runbar { flex-wrap: wrap; height: auto; flex-basis: auto; }
   .runbar-leading, .run-actions { width: 100%; justify-content: space-between; }
   .run-actions .button { flex: 1; }
+}
+
+@media (max-width: 430px) {
+  .brand-copy { display: none; }
+}
+
+@media (max-width: 360px) {
+  #auto-expand-button { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -735,20 +752,26 @@ body.modal-open { overflow: hidden; }
   </section>
 
   <header id="app-header" class="app-header">
-    <div class="brand" role="banner">
-      <div class="brand-mark" aria-hidden="true">Py</div>
-      <div class="brand-copy">
-        <div class="brand-title">Python 离线训练场</div>
-        <div class="brand-subtitle">LC 算法题 · 题面、评测、题解与笔记</div>
+    <div class="header-leading">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">Py</div>
+        <div class="brand-copy">
+          <div class="brand-title">Python 离线训练场</div>
+          <div class="brand-subtitle">LC 算法题 · 题面、评测、题解与笔记</div>
+        </div>
       </div>
-    </div>
-    <div class="header-actions">
       <div class="offline-pill" title="所有题面、图片、运行时和评测数据均已内嵌">
         <span class="offline-dot"></span><span>完全离线</span>
       </div>
+    </div>
+    <div class="header-actions">
       <button id="auto-expand-button" class="button setting-toggle" type="button" role="switch" aria-checked="true" aria-label="进入题目时自动展开题面" title="进入题目时默认展开题面">
         <span class="setting-toggle-track" aria-hidden="true"></span><span class="header-action-label">默认展开</span>
       </button>
+      <div class="code-mode-switch" role="group" aria-label="代码运行模式">
+        <button id="core-mode-button" class="code-mode-button active" type="button" aria-pressed="true" title="使用核心代码模式">核心模式</button>
+        <button id="acm-mode-button" class="code-mode-button" type="button" aria-pressed="false" title="使用 ACM 标准输入输出模式">ACM 模式</button>
+      </div>
       <button id="import-button" class="button" type="button" title="导入 Markdown 学习记录"><span aria-hidden="true">↥</span> <span class="header-action-label">导入</span></button>
       <button id="export-button" class="button" type="button" title="导出 Markdown 学习记录"><span aria-hidden="true">↧</span> <span class="header-action-label">导出</span></button>
       <button id="theme-button" class="icon-button" type="button" aria-label="切换深色模式" title="切换明暗主题">◐</button>
@@ -819,6 +842,15 @@ body.modal-open { overflow: hidden; }
             <div id="problem-kicker" class="problem-kicker"></div>
             <h1 id="problem-title"></h1>
             <div id="official-content" class="official-content"></div>
+            <section id="acm-format-card" class="acm-format-card hidden" aria-live="polite">
+              <h2>ACM 输入输出说明</h2>
+              <h3>输入格式</h3>
+              <p id="acm-input-description"></p>
+              <h3>示例输入</h3>
+              <pre id="acm-sample-input"></pre>
+              <h3>输出格式</h3>
+              <p>将答案写入标准输出。单个结果直接输出；一维序列用空格分隔；二维结果每行输出一组。多解题会按题意校验顺序无关性。</p>
+            </section>
             <div class="source-note">题面来自力扣 LC 题单的离线快照，仅用于个人学习。网页中的本地评测是练习辅助，不等同于力扣官方判题。</div>
           </div>
         </article>
@@ -834,7 +866,10 @@ body.modal-open { overflow: hidden; }
 
           <div id="code-panel" class="workspace-panel active" role="tabpanel" aria-labelledby="code-tab" aria-hidden="false">
             <div class="editor-toolbar">
-              <div class="toolbar-group"><span class="language-pill">Python 3</span><span id="code-save-state" class="save-state">已保存</span></div>
+              <div class="toolbar-group">
+                <span class="language-pill">Python 3</span>
+                <span id="code-save-state" class="save-state">已保存</span>
+              </div>
               <div class="toolbar-group">
                 <div class="font-control" aria-label="编辑器字号"><button id="font-down-button" type="button" aria-label="减小字号">−</button><span id="font-size-label">14</span><button id="font-up-button" type="button" aria-label="增大字号">＋</button></div>
                 <button id="format-code-button" class="button small ghost" type="button" title="使用 Black 格式化（Shift + Alt/Option + F）">格式化</button>
@@ -845,7 +880,7 @@ body.modal-open { overflow: hidden; }
               <pre id="code-highlight" class="code-highlight" aria-hidden="true"></pre>
               <textarea id="code-editor" class="code-editor" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python 代码编辑器"></textarea>
             </div>
-            <div class="editor-statusbar"><span>Tab / 退格缩进 · 括号补全 · Shift + Alt/Option + F 格式化 · ⌘/Ctrl + Enter 运行</span><span id="cursor-position">Ln 1, Col 1</span></div>
+            <div class="editor-statusbar"><span id="editor-shortcuts">Tab / 退格缩进 · 括号补全 · Shift + Alt/Option + F 格式化 · ⌘/Ctrl + Enter 运行</span><span id="cursor-position">Ln 1, Col 1</span></div>
             <div id="result-panel" class="result-panel" aria-live="polite" aria-busy="false"></div>
             <div class="runbar">
               <div class="runbar-leading">
@@ -863,7 +898,7 @@ body.modal-open { overflow: hidden; }
           </div>
 
           <div id="solution-panel" class="workspace-panel" role="tabpanel" aria-labelledby="solution-tab" aria-hidden="true">
-            <div class="solution-toolbar"><strong>参考题解</strong><button id="copy-solution-button" class="button small" type="button">复制代码</button></div>
+            <div class="solution-toolbar"><strong id="reference-mode-label">核心模式参考题解</strong><button id="copy-solution-button" class="button small" type="button">复制代码</button></div>
             <div class="solution-scroll"><div class="solution-section"><h2>解题思路</h2><div id="solution-note" class="solution-note"></div><div id="solution-complexity" class="complexity"></div><pre id="reference-code" class="reference-code"></pre><p class="solution-warning">建议先独立完成并提交，再展开参考实现对照。参考代码是本地评测的基准实现之一。</p></div></div>
           </div>
         </section>
@@ -875,9 +910,9 @@ body.modal-open { overflow: hidden; }
     <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
       <div class="modal-icon" aria-hidden="true">↧</div>
       <h2 id="export-modal-title">导出 Markdown 表格</h2>
-      <p>每道题占一行，题目名、个人笔记和个人代码会整理在同一张表格中，之后可以重新导入。</p>
+      <p>每道题占一行，题目名、个人笔记和核心代码会整理在同一张表格中，之后可以重新导入。</p>
       <label class="option-row" for="export-code-checkbox">
-        <span><strong>在表格中包含个人代码</strong><small>关闭后只导出题目名和个人笔记，表格会更简洁。</small></span>
+        <span><strong>在表格中包含个人代码</strong><small>开启后也会在导入数据中备份 ACM 代码；关闭后表格更简洁。</small></span>
         <input id="export-code-checkbox" type="checkbox">
       </label>
       <div class="modal-actions">
@@ -903,7 +938,7 @@ body.modal-open { overflow: hidden; }
     <section class="modal-card sample-modal-card" role="dialog" aria-modal="true" aria-labelledby="custom-case-modal-title">
       <div class="modal-icon" aria-hidden="true">＋</div>
       <h2 id="custom-case-modal-title">添加运行样例</h2>
-      <p>每个样例填写一段 JSON 输入，最多添加 20 个。运行时会在内置样例之后执行这些自定义样例，并由参考解自动计算期望结果。</p>
+      <p id="custom-case-description">每个样例填写一段 JSON 输入，最多添加 20 个。运行时会在内置样例之后执行这些自定义样例，并由参考解自动计算期望结果。</p>
       <details class="sample-format-tip">
         <summary>查看当前题目的输入格式示例</summary>
         <pre id="custom-case-template"></pre>
@@ -948,6 +983,16 @@ const PROBLEM_PANE_DEFAULT = 43;
 const PROBLEM_PANE_MIN_PX = 360;
 const WORKSPACE_PANE_MIN_PX = 488;
 const WORKSPACE_TAB_NAMES = new Set(["code", "notes", "solution"]);
+const CODE_MODES = new Set(["core", "acm"]);
+const ACM_CODE_TEMPLATE = `import sys
+
+def solve():
+    data = sys.stdin.buffer.read().split()
+    # 按当前题目的 ACM 输入说明解析 data，并用 print() 输出答案
+
+if __name__ == "__main__":
+    solve()
+`;
 const PRIVACY_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" });
 const PRIVACY_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
 const PRIVACY_PAGE_PRESETS = Object.freeze([
@@ -1030,6 +1075,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   lastSlug: PROBLEMS[0].slug,
   expandProblemByDefault: true,
   problemPaneWidth: PROBLEM_PANE_DEFAULT,
+  codeMode: "core",
 });
 const bySlug = new Map(PROBLEMS.map((problem, index) => [problem.slug, { problem, index }]));
 const categories = [...new Set(PROBLEMS.map((problem) => problem.category))];
@@ -1055,13 +1101,14 @@ const ELEMENT_IDS = [
   "continue-button", "random-button", "auto-expand-button", "import-button", "export-button", "theme-button",
   "markdown-file-input", "toast-stack", "back-button", "previous-button", "next-button",
   "mastered-button", "problem-toggle-button", "study-position", "study-title-mini", "study-layout", "pane-resizer", "problem-kicker", "problem-title",
-  "official-content", "problem-pane", "code-editor", "code-highlight", "notes-editor", "code-save-state",
+  "official-content", "acm-format-card", "acm-input-description", "acm-sample-input", "problem-pane", "code-panel", "code-editor", "code-highlight", "editor-shortcuts", "notes-editor", "code-save-state",
   "notes-save-state", "font-down-button", "font-up-button", "font-size-label", "format-code-button", "reset-code-button",
+  "core-mode-button", "acm-mode-button",
   "cursor-position", "runtime-status", "custom-case-button", "run-button", "submit-button", "result-panel",
-  "solution-note", "solution-complexity", "reference-code", "copy-solution-button",
+  "solution-note", "solution-complexity", "reference-code", "reference-mode-label", "copy-solution-button",
   "export-modal", "export-code-checkbox", "export-cancel-button", "export-confirm-button",
   "reset-progress-modal", "reset-progress-description", "reset-progress-cancel-button", "reset-progress-confirm-button",
-  "custom-case-modal", "custom-case-template", "custom-case-list", "custom-case-add-button",
+  "custom-case-modal", "custom-case-description", "custom-case-template", "custom-case-list", "custom-case-add-button",
   "custom-case-cancel-button", "custom-case-save-button",
 ];
 const elements = {};
@@ -1074,6 +1121,7 @@ for (const id of ELEMENT_IDS) {
 if (missingElementIds.length) throw new Error(`页面缺少必要元素：${missingElementIds.join(", ")}`);
 const workspaceTabButtons = [...elements.workspace_tabs.querySelectorAll('[role="tab"]')];
 const workspacePanels = [...document.querySelectorAll('[role="tabpanel"]')];
+const taskControlButtons = [elements.core_mode_button, elements.acm_mode_button, elements.format_code_button, elements.custom_case_button, elements.run_button, elements.submit_button];
 const savePulseTimers = new WeakMap();
 const mobileWorkspaceMedia = matchMedia("(max-width: 820px)");
 
@@ -1122,8 +1170,14 @@ function normalizeRecord(value) {
     passedAt: status === "solved" && typeof raw.passedAt === "string" ? raw.passedAt : null,
   };
   if (typeof raw.code === "string") record.code = raw.code;
+  if (typeof raw.acmCode === "string") record.acmCode = raw.acmCode;
   if (Array.isArray(raw.customCases)) {
     record.customCases = raw.customCases
+      .filter((item) => typeof item === "string" && item.length <= MAX_CUSTOM_CASE_LENGTH)
+      .slice(0, MAX_CUSTOM_CASES);
+  }
+  if (Array.isArray(raw.acmCustomCases)) {
+    record.acmCustomCases = raw.acmCustomCases
       .filter((item) => typeof item === "string" && item.length <= MAX_CUSTOM_CASE_LENGTH)
       .slice(0, MAX_CUSTOM_CASES);
   }
@@ -1138,6 +1192,7 @@ function normalizeSettings(value) {
     lastSlug: bySlug.has(raw.lastSlug) ? raw.lastSlug : DEFAULT_SETTINGS.lastSlug,
     expandProblemByDefault: typeof raw.expandProblemByDefault === "boolean" ? raw.expandProblemByDefault : DEFAULT_SETTINGS.expandProblemByDefault,
     problemPaneWidth: Number.isFinite(raw.problemPaneWidth) ? clamp(raw.problemPaneWidth, PROBLEM_PANE_MIN, PROBLEM_PANE_MAX) : DEFAULT_SETTINGS.problemPaneWidth,
+    codeMode: CODE_MODES.has(raw.codeMode) ? raw.codeMode : DEFAULT_SETTINGS.codeMode,
   };
 }
 
@@ -1196,17 +1251,491 @@ function recordFor(slug, create = true) {
 }
 
 function customCasesFor(slug = currentSlug) {
-  const cases = slug ? recordFor(slug, false).customCases : null;
+  const key = state.settings.codeMode === "acm" ? "acmCustomCases" : "customCases";
+  const cases = slug ? recordFor(slug, false)[key] : null;
   return Array.isArray(cases) ? cases : [];
 }
 
+const acmSchemaCache = new WeakMap();
+
+function inferAcmSchema(values) {
+  const present = values.filter((value) => value !== null && value !== undefined);
+  if (!present.length) return { type: "string", nullable: true };
+  if (present.every(Array.isArray)) {
+    const children = present.flat();
+    const item = inferAcmSchema(children);
+    const matrix = item.type === "array" && item.item?.type !== "array" && present.every((outer) => {
+      if (!outer.length) return true;
+      if (!outer.every(Array.isArray)) return false;
+      const width = outer[0].length;
+      return outer.every((row) => row.length === width);
+    });
+    return { type: "array", item, matrix };
+  }
+  const type = present.every((value) => typeof value === "number") ? "number"
+    : present.every((value) => typeof value === "boolean") ? "boolean"
+      : "string";
+  return { type, nullable: present.length !== values.length };
+}
+
+function acmSchemaFor(solution) {
+  if (acmSchemaCache.has(solution)) return acmSchemaCache.get(solution);
+  let schema;
+  if (solution.kind === "class") {
+    const occurrences = new Map();
+    for (const test of solution.tests) {
+      test.ops.forEach((operation, index) => {
+        if (!occurrences.has(operation)) occurrences.set(operation, []);
+        occurrences.get(operation).push(test.args[index]);
+      });
+    }
+    const operations = new Map([...occurrences].map(([operation, argumentLists]) => {
+      const count = Math.max(0, ...argumentLists.map((args) => args.length));
+      return [operation, Array.from({ length: count }, (_, index) => inferAcmSchema(argumentLists.map((args) => args[index])))];
+    }));
+    schema = { kind: "class", operations };
+  } else {
+    const count = Math.max(0, ...solution.tests.map((test) => test.length));
+    schema = {
+      kind: "method",
+      args: Array.from({ length: count }, (_, index) => inferAcmSchema(solution.tests.map((test) => test[index]))),
+    };
+  }
+  acmSchemaCache.set(solution, schema);
+  return schema;
+}
+
+function acmScalarText(value) {
+  if (value == null) return "null";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (value === "") return '""';
+  return String(value);
+}
+
+function encodeAcmValue(value, schema) {
+  if (schema.type !== "array") return [acmScalarText(value)];
+  if (schema.matrix) {
+    const rows = value.length;
+    const columns = rows ? value[0].length : 0;
+    return [`${rows} ${columns}`, ...value.map((row) => row.map(acmScalarText).join(" "))];
+  }
+  if (schema.item.type !== "array") {
+    if (schema.item.type === "string") return [String(value.length), ...value.map(acmScalarText)];
+    return value.length ? [String(value.length), value.map(acmScalarText).join(" ")] : ["0"];
+  }
+  return [String(value.length), ...value.flatMap((item) => encodeAcmValue(item, schema.item))];
+}
+
+function formatAcmCase(value, solution) {
+  const schema = acmSchemaFor(solution);
+  if (schema.kind === "class") {
+    const lines = [String(value.ops.length)];
+    value.ops.forEach((operation, index) => {
+      lines.push([operation, ...value.args[index].map(acmScalarText)].join(" "));
+    });
+    return lines.join("\n");
+  }
+  return value.flatMap((argument, index) => encodeAcmValue(argument, schema.args[index])).join("\n");
+}
+
+function parseAcmScalar(source, schema, label) {
+  const value = source.trim();
+  if (schema.nullable && ["null", "none"].includes(value.toLowerCase())) return null;
+  if (schema.type === "number") {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) throw new Error(`${label} 必须是数字`);
+    return parsed;
+  }
+  if (schema.type === "boolean") {
+    if (["true", "1"].includes(value.toLowerCase())) return true;
+    if (["false", "0"].includes(value.toLowerCase())) return false;
+    throw new Error(`${label} 必须是 true 或 false`);
+  }
+  if (schema.type === "string" && value === '""') return "";
+  return source;
+}
+
+function parseAcmMethodCase(source, solution) {
+  const lines = source.replaceAll("\r", "").split("\n");
+  let cursor = 0;
+  const readLine = (label) => {
+    if (cursor >= lines.length) throw new Error(`缺少${label}`);
+    return lines[cursor++];
+  };
+  const readCount = (label, pair = false) => {
+    const parts = readLine(label).trim().split(/\s+/).filter(Boolean);
+    const required = pair ? 2 : 1;
+    if (parts.length !== required || parts.some((part) => !/^\d+$/.test(part))) throw new Error(`${label}格式无效`);
+    return parts.map(Number);
+  };
+  const parseValue = (schema, label) => {
+    if (schema.type !== "array") return parseAcmScalar(readLine(label), schema, label);
+    if (schema.matrix) {
+      const [rows, columns] = readCount(`${label}的行列数`, true);
+      return Array.from({ length: rows }, (_, row) => {
+        const parts = readLine(`${label}第 ${row + 1} 行`).trim().split(/\s+/).filter(Boolean);
+        if (parts.length !== columns) throw new Error(`${label}第 ${row + 1} 行应有 ${columns} 项`);
+        return parts.map((part, column) => parseAcmScalar(part, schema.item.item, `${label}[${row}][${column}]`));
+      });
+    }
+    const [count] = readCount(`${label}的长度`);
+    if (schema.item.type === "string") {
+      return Array.from({ length: count }, (_, index) => parseAcmScalar(readLine(`${label}[${index}]`), schema.item, `${label}[${index}]`));
+    }
+    if (schema.item.type !== "array") {
+      if (!count) return [];
+      const parts = readLine(`${label}的元素`).trim().split(/\s+/).filter(Boolean);
+      if (parts.length !== count) throw new Error(`${label}应有 ${count} 项`);
+      return parts.map((part, index) => parseAcmScalar(part, schema.item, `${label}[${index}]`));
+    }
+    return Array.from({ length: count }, (_, index) => parseValue(schema.item, `${label}[${index}]`));
+  };
+  const schema = acmSchemaFor(solution);
+  const args = schema.args.map((argumentSchema, index) => parseValue(argumentSchema, `参数 ${index + 1}`));
+  if (lines.slice(cursor).some((line) => line.trim())) throw new Error("末尾存在多余输入");
+  return args;
+}
+
+function parseAcmClassCase(source, solution) {
+  const lines = source.replaceAll("\r", "").split("\n").filter((line) => line.trim());
+  if (!lines.length || !/^\d+$/.test(lines[0].trim())) throw new Error("第一行必须是操作数量");
+  const count = Number(lines[0]);
+  if (lines.length !== count + 1) throw new Error(`应包含 ${count} 行操作`);
+  const schema = acmSchemaFor(solution);
+  const ops = [];
+  const args = [];
+  for (let index = 0; index < count; index += 1) {
+    const [operation, ...tokens] = lines[index + 1].trim().split(/\s+/);
+    const argumentSchemas = schema.operations.get(operation);
+    if (!argumentSchemas) throw new Error(`未知操作 ${operation}`);
+    if (tokens.length !== argumentSchemas.length) throw new Error(`${operation} 需要 ${argumentSchemas.length} 个参数`);
+    ops.push(operation);
+    args.push(tokens.map((token, argumentIndex) => parseAcmScalar(token, argumentSchemas[argumentIndex], `${operation} 参数 ${argumentIndex + 1}`)));
+  }
+  if (ops[0] !== solution.className) throw new Error(`首个操作必须是 ${solution.className}`);
+  return { ops, args };
+}
+
+function solutionArgumentNames(solution) {
+  if (solution.setup === "intersection") return ["链表 A 的独有前缀", "链表 B 的独有前缀", "公共尾部"];
+  if (solution.setup === "cycle") return ["链表节点值", "环入口下标"];
+  if (solution.setup === "lca") return ["二叉树层序序列", "节点 p 的值", "节点 q 的值"];
+  const parameters = solution.code.match(/def\s+\w+\s*\(self(?:,\s*([^)]*))?\)/)?.[1];
+  return parameters ? parameters.split(",").map((value) => value.trim().split(/[=:]/)[0].trim()) : [];
+}
+
+function describeAcmSchema(name, schema) {
+  if (schema.type === "number") return `${name}：一行一个数字`;
+  if (schema.type === "boolean") return `${name}：一行 true 或 false`;
+  if (schema.type === "string") return `${name}：一行一个字符串`;
+  if (schema.matrix) return `${name}：先输入“行数 列数”，随后每行输入一行数据`;
+  if (schema.item.type === "string") return `${name}：先输入元素个数，随后每个字符串占一行`;
+  if (schema.item.type !== "array") return `${name}：先输入元素个数，下一行输入空格分隔的元素`;
+  return `${name}：先输入分组数，随后每组先输入长度，再输入该组元素`;
+}
+
+function acmInputDescriptionFor(solution) {
+  const schema = acmSchemaFor(solution);
+  if (schema.kind === "class") return "第一行输入操作数量；随后每行输入操作名及其空格分隔的参数。";
+  const names = solutionArgumentNames(solution);
+  return schema.args.map((argumentSchema, index) => describeAcmSchema(names[index] || `参数 ${index + 1}`, argumentSchema)).join("；") + "。";
+}
+
+const ACM_REFERENCE_LIST_SUPPORT = String.raw`class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def _build_list(values):
+    nodes = [ListNode(value) for value in values]
+    for current, following in zip(nodes, nodes[1:]):
+        current.next = following
+    return (nodes[0] if nodes else None), nodes`;
+
+const ACM_REFERENCE_RANDOM_SUPPORT = String.raw`class Node:
+    def __init__(self, x=0, next=None, random=None):
+        self.val = x
+        self.next = next
+        self.random = random
+
+def _random_from(values):
+    nodes = [Node(item[0]) for item in values]
+    for index, item in enumerate(values):
+        if index + 1 < len(nodes):
+            nodes[index].next = nodes[index + 1]
+        if item[1] is not None:
+            nodes[index].random = nodes[item[1]]
+    return nodes[0] if nodes else None`;
+
+const ACM_REFERENCE_TREE_SUPPORT = String.raw`class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+def _tree_from(values):
+    if not values or values[0] is None:
+        return None
+    root = TreeNode(values[0])
+    queue = [root]
+    index = 1
+    for node in queue:
+        if index >= len(values):
+            break
+        if index < len(values) and values[index] is not None:
+            node.left = TreeNode(values[index])
+            queue.append(node.left)
+        index += 1
+        if index < len(values) and values[index] is not None:
+            node.right = TreeNode(values[index])
+            queue.append(node.right)
+        index += 1
+    return root`;
+
+const acmReferenceCodeCache = new WeakMap();
+const ACM_DEFAULT_LIST_METHODS = new Set([
+  "findAnagrams", "maxSlidingWindow", "productExceptSelf", "spiralOrder", "inorderTraversal",
+  "rightSideView", "searchRange", "dailyTemperatures", "partitionLabels",
+]);
+const ACM_DEFAULT_ROW_METHODS = new Set(["merge", "levelOrder", "generate"]);
+const ACM_STRING_OUTPUT_METHODS = new Set(["minWindow", "decodeString", "longestPalindrome"]);
+
+function acmPythonToken(source, schema) {
+  let converted;
+  if (schema.type === "number") converted = `int(${source})`;
+  else if (schema.type === "boolean") converted = `${source}.lower() in ("true", "1", "yes")`;
+  else converted = `("" if ${source} == '\"\"' else ${source})`;
+  return schema.nullable ? `(None if ${source}.lower() in ("null", "none") else ${converted})` : converted;
+}
+
+function acmTokenListExpression(schema) {
+  if (schema.type === "number" && !schema.nullable) return "list(map(int, input().split()))";
+  return `[${acmPythonToken("value", schema)} for value in input().split()]`;
+}
+
+function acmReadLines(name, schema) {
+  const size = `${name}_length`;
+  if (schema.type !== "array") {
+    if (schema.type === "number" && !schema.nullable) return [`${name} = int(input())`];
+    if (schema.type === "boolean" && !schema.nullable) return [`${name} = input().strip().lower() in ("true", "1", "yes")`];
+    const raw = `${name}_text`;
+    return [`${raw} = input()`, `${name} = ${acmPythonToken(raw, schema)}`];
+  }
+  if (schema.matrix) {
+    const rows = `${name}_rows`;
+    const columns = `${name}_columns`;
+    return [
+      `${rows}, ${columns} = map(int, input().split())`,
+      `${name} = [${acmTokenListExpression(schema.item.item)} for _ in range(${rows})]`,
+    ];
+  }
+  if (schema.item.type !== "array") {
+    if (schema.item.type === "string") {
+      const raw = `${name}_text`;
+      return [
+        `${size} = int(input())`,
+        `${name} = []`,
+        `for _ in range(${size}):`,
+        `    ${raw} = input()`,
+        `    ${name}.append(${acmPythonToken(raw, schema.item)})`,
+      ];
+    }
+    return [
+      `${size} = int(input())`,
+      `${name} = ${acmTokenListExpression(schema.item)} if ${size} else []`,
+    ];
+  }
+  const groupSize = `${name}_group_length`;
+  const itemSchema = schema.item.item;
+  const lines = [`${size} = int(input())`, `${name} = []`, `for _ in range(${size}):`, `    ${groupSize} = int(input())`];
+  if (itemSchema.type === "string") {
+    const raw = `${name}_text`;
+    const group = `${name}_group`;
+    lines.push(`    ${group} = []`, `    for _ in range(${groupSize}):`, `        ${raw} = input()`, `        ${group}.append(${acmPythonToken(raw, itemSchema)})`, `    ${name}.append(${group})`);
+  } else {
+    lines.push(`    ${name}.append(${acmTokenListExpression(itemSchema)} if ${groupSize} else [])`);
+  }
+  return lines;
+}
+
+function acmRawArgumentNames(solution, count) {
+  const special = solution.setup === "intersection" ? ["prefix_a", "prefix_b", "shared_values"]
+    : solution.setup === "cycle" ? ["values", "position"]
+      : solution.setup === "lca" ? ["tree_values", "p_value", "q_value"]
+        : solutionArgumentNames(solution);
+  return Array.from({ length: count }, (_, index) => /^[A-Za-z_]\w*$/.test(special[index] || "") ? special[index] : `_arg_${index + 1}`);
+}
+
+function indentPython(source, spaces = 4) {
+  const indentation = " ".repeat(spaces);
+  return source.split("\n").map((line) => line ? indentation + line : "").join("\n");
+}
+
+function acmOutputShape(solution, schema) {
+  if (["groups", "rows", "rows-sorted", "randomlist"].includes(solution.output)) return "rows";
+  if (solution.output === "mutated") return schema.args[0]?.matrix ? "rows" : "list";
+  if (["listnode", "tree", "balanced-bst", "flatten", "sorted", "unordered"].includes(solution.output)) return "list";
+  if (ACM_DEFAULT_ROW_METHODS.has(solution.method)) return "rows";
+  if (ACM_DEFAULT_LIST_METHODS.has(solution.method)) return "list";
+  return "scalar";
+}
+
+function acmPrintLines(shape, solution, variable = "answer") {
+  if (shape === "rows") return [
+    `for row in ${variable}:`,
+    solution.method === "groupAnagrams"
+      ? `    print(*(('\"\"' if value == "" else value) for value in row)) if row else print("-")`
+      : `    print(*row) if row else print("-")`,
+  ];
+  if (shape === "list") return [`print(*${variable})`];
+  if (ACM_STRING_OUTPUT_METHODS.has(solution.method)) return [`print('\"\"' if ${variable} == "" else ${variable})`];
+  return [`print(${variable})`];
+}
+
+function acmMethodBody(solution, schema, names) {
+  const lines = names.flatMap((name, index) => acmReadLines(name, schema.args[index]));
+  const kinds = solution.argKinds || [];
+  let callNames = [...names];
+  if (solution.setup === "intersection") {
+    lines.push(...String.raw`shared, shared_nodes = _build_list(shared_values)
+head_a, nodes_a = _build_list(prefix_a)
+head_b, nodes_b = _build_list(prefix_b)
+head_a = head_a or shared
+head_b = head_b or shared
+if nodes_a:
+    nodes_a[-1].next = shared
+if nodes_b:
+    nodes_b[-1].next = shared
+nodes = shared_nodes + nodes_a + nodes_b`.split("\n"));
+    callNames = ["head_a", "head_b"];
+  } else if (solution.setup === "cycle") {
+    lines.push(...String.raw`head, nodes = _build_list(values)
+if nodes and position >= 0:
+    nodes[-1].next = nodes[position]`.split("\n"));
+    callNames = ["head"];
+  } else if (solution.setup === "lca") {
+    lines.push(...String.raw`root = _tree_from(tree_values)
+nodes = []
+queue = [root] if root else []
+for node in queue:
+    nodes.append(node)
+    if node.left:
+        queue.append(node.left)
+    if node.right:
+        queue.append(node.right)
+p = next((node for node in nodes if node.val == p_value), None)
+q = next((node for node in nodes if node.val == q_value), None)`.split("\n"));
+    callNames = ["root", "p", "q"];
+  } else {
+    names.forEach((name, index) => {
+      const kind = kinds[index] || "normal";
+      if (kind === "listnode") lines.push(`${name}, _ = _build_list(${name})`);
+      else if (kind === "listnodes") lines.push(`${name} = [_build_list(values)[0] for values in ${name}]`);
+      else if (kind === "tree") lines.push(`${name} = _tree_from(${name})`);
+      else if (kind === "randomlist") lines.push(`${name} = _random_from(${name})`);
+    });
+  }
+  lines.push(`result = Solution().${solution.method}(${callNames.join(", ")})`);
+  let outputName = "result";
+  if (solution.output === "mutated") {
+    lines.push(`answer = ${callNames[0]}`);
+    outputName = "answer";
+  } else if (solution.output === "listnode") {
+    lines.push(...String.raw`answer = []
+while result:
+    answer.append(result.val)
+    result = result.next`.split("\n"));
+    outputName = "answer";
+  } else if (["tree", "balanced-bst"].includes(solution.output)) {
+    lines.push(...String.raw`answer = []
+queue = [result] if result else []
+for node in queue:
+    if node is None:
+        answer.append(None)
+        continue
+    answer.append(node.val)
+    queue.extend((node.left, node.right))
+while answer and answer[-1] is None:
+    answer.pop()`.split("\n"));
+    outputName = "answer";
+  } else if (solution.output === "randomlist") {
+    lines.push(...String.raw`nodes = []
+while result:
+    nodes.append(result)
+    result = result.next
+positions = {id(node): index for index, node in enumerate(nodes)}
+answer = [[node.val, positions.get(id(node.random)) if node.random else None] for node in nodes]`.split("\n"));
+    outputName = "answer";
+  } else if (solution.output === "node-index") {
+    lines.push("answer = next((index for index, node in enumerate(nodes) if node is result), -1)");
+    outputName = "answer";
+  } else if (solution.output === "flatten") {
+    lines.push(...String.raw`answer = []
+node = root
+while node:
+    answer.append(node.val)
+    node = node.right`.split("\n"));
+    outputName = "answer";
+  }
+  lines.push(...acmPrintLines(acmOutputShape(solution, schema), solution, outputName));
+  return lines.join("\n");
+}
+
+function acmClassBody(solution, schema) {
+  const branches = [...schema.operations].flatMap(([operation, argumentSchemas], index) => {
+    const args = argumentSchemas.map((item, argumentIndex) => acmPythonToken(`values[${argumentIndex}]`, item)).join(", ");
+    const action = operation === solution.className
+      ? [`instance = ${solution.className}(${args})`, "answer.append(None)"]
+      : [`answer.append(instance.${operation}(${args}))`];
+    return [`${index ? "elif" : "if"} operation == ${JSON.stringify(operation)}:`, ...action.map((line) => `    ${line}`)];
+  });
+  return [
+    "instance = None",
+    "answer = []",
+    "for _ in range(int(input())):",
+    "    operation, *values = input().split()",
+    ...branches.map((line) => `    ${line}`),
+    ...acmPrintLines("list", solution),
+  ].join("\n");
+}
+
+function acmReferenceCodeFor(solution) {
+  if (acmReferenceCodeCache.has(solution)) return acmReferenceCodeCache.get(solution);
+  const schema = acmSchemaFor(solution);
+  const usesLinked = ["intersection", "cycle"].includes(solution.setup)
+    || (solution.argKinds || []).some((kind) => ["listnode", "listnodes"].includes(kind))
+    || solution.output === "listnode";
+  const usesRandom = (solution.argKinds || []).includes("randomlist") || solution.output === "randomlist";
+  const usesTree = solution.setup === "lca" || (solution.argKinds || []).includes("tree")
+    || ["tree", "balanced-bst", "flatten"].includes(solution.output);
+  const structures = [
+    usesLinked ? ACM_REFERENCE_LIST_SUPPORT : "",
+    usesRandom ? ACM_REFERENCE_RANDOM_SUPPORT : "",
+    usesTree ? ACM_REFERENCE_TREE_SUPPORT : "",
+  ].filter(Boolean).join("\n\n");
+  const names = schema.kind === "method" ? acmRawArgumentNames(solution, schema.args.length) : [];
+  const body = schema.kind === "class" ? acmClassBody(solution, schema) : acmMethodBody(solution, schema, names);
+  const code = `${structures ? `${structures}\n\n` : ""}${solution.code}\n\ndef solve():\n${indentPython(body)}\n\nif __name__ == "__main__":\n    solve()\n`;
+  acmReferenceCodeCache.set(solution, code);
+  return code;
+}
+
+function referenceCodeForMode(solution, mode = state.settings.codeMode) {
+  return mode === "acm" ? acmReferenceCodeFor(solution) : solution.code;
+}
+
 function customCaseTemplateFor(slug = currentSlug) {
-  const example = slug ? SOLUTIONS[slug]?.tests?.[0] : null;
+  const solution = slug ? SOLUTIONS[slug] : null;
+  const example = solution?.tests?.[0];
+  if (state.settings.codeMode === "acm" && solution && example != null) return formatAcmCase(example, solution);
   return JSON.stringify(example ?? [], null, 2);
 }
 
 function parseCustomCase(source, solution) {
   if (source.length > MAX_CUSTOM_CASE_LENGTH) throw new Error(`内容不能超过 ${MAX_CUSTOM_CASE_LENGTH} 个字符`);
+  if (state.settings.codeMode === "acm") {
+    return solution.kind === "class" ? parseAcmClassCase(source, solution) : parseAcmMethodCase(source, solution);
+  }
   const value = JSON.parse(source);
   if (solution.kind !== "class") {
     if (!Array.isArray(value)) throw new Error("函数题输入需要使用参数数组");
@@ -1259,10 +1788,11 @@ function updateCustomCaseButton() {
 }
 
 function renderCustomCaseDrafts(focusIndex = -1) {
+  const inputMode = state.settings.codeMode === "acm" ? "ACM 标准" : "JSON";
   elements.custom_case_list.innerHTML = customCaseDrafts.length
     ? customCaseDrafts.map((value, index) => `<article class="custom-case-editor">
         <div class="custom-case-head"><span>自定义样例 ${index + 1}</span><button class="button small ghost custom-case-remove" type="button" data-remove-custom-case="${index}">删除</button></div>
-        <textarea class="custom-case-input" data-custom-case-index="${index}" maxlength="${MAX_CUSTOM_CASE_LENGTH}" spellcheck="false" aria-label="自定义样例 ${index + 1} 的 JSON 输入">${escapeHtml(value)}</textarea>
+        <textarea class="custom-case-input" data-custom-case-index="${index}" maxlength="${MAX_CUSTOM_CASE_LENGTH}" spellcheck="false" aria-label="自定义样例 ${index + 1} 的 ${inputMode} 输入">${escapeHtml(value)}</textarea>
       </article>`).join("")
     : `<div class="empty-state">还没有自定义样例，点击“再加一个”开始。</div>`;
   elements.custom_case_add_button.disabled = customCaseDrafts.length >= MAX_CUSTOM_CASES;
@@ -1278,7 +1808,11 @@ function addCustomCaseDraft() {
 
 function openCustomCaseModal() {
   if (!currentSlug) return;
+  const acm = state.settings.codeMode === "acm";
   customCaseDrafts = [...customCasesFor()];
+  elements.custom_case_description.textContent = acm
+    ? `每个样例按当前题目的标准输入格式填写，最多添加 ${MAX_CUSTOM_CASES} 个。${acmInputDescriptionFor(SOLUTIONS[currentSlug])}运行时由参考解计算期望结果。`
+    : `每个样例填写一段 JSON 输入，最多添加 ${MAX_CUSTOM_CASES} 个。运行时会在内置样例之后执行这些自定义样例，并由参考解自动计算期望结果。`;
   elements.custom_case_template.textContent = customCaseTemplateFor();
   if (!customCaseDrafts.length) addCustomCaseDraft();
   else renderCustomCaseDrafts();
@@ -1291,11 +1825,13 @@ function closeCustomCaseModal() {
 }
 
 function saveCustomCases() {
+  const acm = state.settings.codeMode === "acm";
+  const solution = SOLUTIONS[currentSlug];
   const normalized = [];
   for (const [index, source] of customCaseDrafts.entries()) {
     try {
-      const value = parseCustomCase(source, SOLUTIONS[currentSlug]);
-      normalized.push(JSON.stringify(value, null, 2));
+      const value = parseCustomCase(source, solution);
+      normalized.push(acm ? formatAcmCase(value, solution) : JSON.stringify(value, null, 2));
     } catch (error) {
       renderCustomCaseDrafts(index);
       toast(`自定义样例 ${index + 1} 格式错误：${error.message}`, "error");
@@ -1303,7 +1839,7 @@ function saveCustomCases() {
     }
   }
   const record = recordFor(currentSlug);
-  record.customCases = normalized;
+  record[acm ? "acmCustomCases" : "customCases"] = normalized;
   record.updatedAt = timestamp();
   saveState(true);
   updateCustomCaseButton();
@@ -1533,6 +2069,48 @@ function setProblemPaneWidth(percent, persist = true) {
   if (persist) saveState();
 }
 
+function currentCodeRecordKey(mode = state.settings.codeMode) {
+  return mode === "acm" ? "acmCode" : "code";
+}
+
+function codeTemplateFor(problem, mode = state.settings.codeMode) {
+  return mode === "acm" ? ACM_CODE_TEMPLATE : problem.starterCode;
+}
+
+function setCodeMode(mode, saveCurrent = true, persist = true) {
+  if (!CODE_MODES.has(mode)) return;
+  if (saveCurrent && currentSlug) syncCurrentEditors(true);
+  state.settings.codeMode = mode;
+  const acm = mode === "acm";
+  elements.core_mode_button.classList.toggle("active", !acm);
+  elements.acm_mode_button.classList.toggle("active", acm);
+  elements.core_mode_button.setAttribute("aria-pressed", String(!acm));
+  elements.acm_mode_button.setAttribute("aria-pressed", String(acm));
+  elements.acm_format_card.classList.toggle("hidden", !acm);
+  elements.code_editor.setAttribute("aria-label", acm ? "Python ACM 代码编辑器" : "Python 核心代码编辑器");
+  elements.editor_shortcuts.textContent = acm
+    ? "按题目格式从 stdin 读取 · 输出答案到 stdout · ⌘/Ctrl + Enter 运行"
+    : "Tab / 退格缩进 · 括号补全 · Shift + Alt/Option + F 格式化 · ⌘/Ctrl + Enter 运行";
+  if (currentSlug) {
+    const { problem } = bySlug.get(currentSlug);
+    const solution = SOLUTIONS[currentSlug];
+    const record = recordFor(currentSlug);
+    const key = currentCodeRecordKey(mode);
+    elements.code_editor.value = record[key] ?? codeTemplateFor(problem, mode);
+    elements.acm_input_description.textContent = acm ? acmInputDescriptionFor(solution) : "";
+    elements.acm_sample_input.textContent = acm ? formatAcmCase(solution.tests[0], solution) : "";
+    elements.reference_mode_label.textContent = acm ? "ACM 模式参考题解" : "核心模式参考题解";
+    elements.reference_code.textContent = referenceCodeForMode(solution, mode);
+    elements.result_panel.className = "result-panel";
+    elements.result_panel.innerHTML = "";
+    lastFormatChange = null;
+    updateCodeHighlight();
+    updateCursorPosition();
+    updateCustomCaseButton();
+  }
+  if (persist) saveState();
+}
+
 function openProblem(slug, updateHash = true) {
   const entry = bySlug.get(slug);
   if (!entry) return;
@@ -1555,20 +2133,13 @@ function openProblem(slug, updateHash = true) {
   const difficulty = DIFFICULTY[problem.difficulty];
   elements.problem_kicker.innerHTML = `<span class="difficulty ${difficulty.className}">${difficulty.label}</span><span class="tag">${escapeHtml(problem.category)}</span>${problem.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}`;
   elements.official_content.innerHTML = officialContentFor(problem);
-  elements.code_editor.value = record.code ?? problem.starterCode;
-  updateCodeHighlight();
+  setCodeMode(state.settings.codeMode, false, false);
   elements.notes_editor.value = record.note;
   elements.solution_note.textContent = solution.note;
   elements.solution_complexity.textContent = solution.complexity;
-  elements.reference_code.textContent = solution.code;
-  elements.result_panel.className = "result-panel";
-  elements.result_panel.innerHTML = "";
-  updateCustomCaseButton();
   elements.problem_pane.scrollTop = 0;
   updateMasteredButton();
-  updateCursorPosition();
   switchWorkspaceTab("code");
-  document.title = "Python 离线训练场";
   if (updateHash && location.hash !== `#problem=${encodeURIComponent(slug)}`) {
     location.hash = `problem=${encodeURIComponent(slug)}`;
   }
@@ -1578,7 +2149,6 @@ function showCatalog(updateHash = true) {
   currentSlug = null;
   elements.study_view.classList.remove("active");
   elements.catalog_view.classList.add("active");
-  document.title = "Python 离线训练场";
   renderCatalog();
   if (updateHash && location.hash) history.pushState(null, "", location.href.split("#")[0]);
 }
@@ -1787,11 +2357,15 @@ function updateCurrentRecord(values, immediate = false) {
 }
 
 function touchRecord(type) {
-  updateCurrentRecord({ [type]: type === "code" ? elements.code_editor.value : elements.notes_editor.value });
+  if (type === "code") updateCurrentRecord({ [currentCodeRecordKey()]: elements.code_editor.value });
+  else updateCurrentRecord({ note: elements.notes_editor.value });
 }
 
 function syncCurrentEditors(immediate = false) {
-  updateCurrentRecord({ code: elements.code_editor.value, note: elements.notes_editor.value }, immediate);
+  updateCurrentRecord({
+    [currentCodeRecordKey()]: elements.code_editor.value,
+    note: elements.notes_editor.value,
+  }, immediate);
 }
 
 function showSavePulse(element) {
@@ -2207,6 +2781,7 @@ function exportMarkdown(includeCode = false) {
       passedAt: record.passedAt || null,
       noteBase64: encodeRecordText(record.note),
       codeBase64: includeCode && record.code != null ? encodeRecordText(record.code) : null,
+      acmCodeBase64: includeCode && record.acmCode != null ? encodeRecordText(record.acmCode) : null,
     };
     metadataRecords.push(metadata);
     const title = `[${metadata.status === "solved" ? "x" : " "}] **${problem.frontendId}. ${markdownTableCell(problem.title)}**`;
@@ -2291,6 +2866,11 @@ function importMarkdown(text) {
         if (metadata.codeBase64 == null) delete record.code;
         else if (typeof metadata.codeBase64 === "string") record.code = decodeRecordText(metadata.codeBase64);
         else throw new Error("个人代码数据无效");
+        if (Object.hasOwn(metadata, "acmCodeBase64")) {
+          if (metadata.acmCodeBase64 == null) delete record.acmCode;
+          else if (typeof metadata.acmCodeBase64 === "string") record.acmCode = decodeRecordText(metadata.acmCodeBase64);
+          else throw new Error("ACM 代码数据无效");
+        }
       }
       importedRecords.set(metadata.slug, record);
     } catch {
@@ -2317,9 +2897,14 @@ let formatterBundle = null;
 let formatterScript = "";
 const errorText = (error) => String(error && (error.stack || error.message) || error);
 
+function createRuntimeUrl(content, type) {
+  return URL.createObjectURL(new Blob([content], { type }));
+}
+
 // Pyodide rejects classic workers when importScripts is present. We deliberately
 // hide it and use dynamic import so the same worker also works from file:// URLs,
-// where module workers are rejected by some browsers.
+// where module workers are rejected by some browsers. Runtime object URLs are
+// created below by this worker so opaque file origins never cross contexts.
 try {
   Object.defineProperty(globalThis, "importScripts", { value: undefined, configurable: true });
 } catch {
@@ -2334,20 +2919,32 @@ self.onmessage = async (event) => {
       formatterBundle = message.formatterBundle;
       formatterScript = message.formatterScript;
       const nativeFetch = self.fetch.bind(self);
-      self.fetch = (input, options) => {
-        const url = typeof input === "string" ? input : (input?.url || input?.href || String(input));
-        if (url === "https://offline.local/pyodide.asm.wasm") return nativeFetch(message.runtime.wasmUrl, options);
-        return nativeFetch(input, options);
-      };
-      const loader = await import(message.runtime.loaderUrl);
-      const asmModule = await import(message.runtime.asmModuleUrl);
-      pyodide = await loader.loadPyodide({
-        indexURL: "https://offline.local/",
-        stdLibURL: message.runtime.stdlibUrl,
-        lockFileContents: message.runtime.lock,
-        packageBaseUrl: "https://offline.local/",
-        createPyodideModule: asmModule.default,
-      });
+      const runtimeUrls = [];
+      try {
+        runtimeUrls.push(
+          createRuntimeUrl(message.runtime.loaderSource, "text/javascript"),
+          createRuntimeUrl(message.runtime.asmModuleSource, "text/javascript"),
+          createRuntimeUrl(message.runtime.wasmBytes, "application/wasm"),
+          createRuntimeUrl(message.runtime.stdlibBytes, "application/zip"),
+        );
+        self.fetch = (input, options) => {
+          const url = typeof input === "string" ? input : (input?.url || input?.href || String(input));
+          if (url === "https://offline.local/pyodide.asm.wasm") return nativeFetch(runtimeUrls[2], options);
+          return nativeFetch(input, options);
+        };
+        const loader = await import(runtimeUrls[0]);
+        const asmModule = await import(runtimeUrls[1]);
+        pyodide = await loader.loadPyodide({
+          indexURL: "https://offline.local/",
+          stdLibURL: runtimeUrls[3],
+          lockFileContents: message.runtime.lock,
+          packageBaseUrl: "https://offline.local/",
+          createPyodideModule: asmModule.default,
+        });
+      } finally {
+        self.fetch = nativeFetch;
+        runtimeUrls.forEach((url) => URL.revokeObjectURL(url));
+      }
       self.postMessage({ type: "ready" });
     } catch (error) {
       self.postMessage({ type: "init-error", error: errorText(error) });
@@ -2374,7 +2971,6 @@ self.onmessage = async (event) => {
 `;
 
 let decodedRuntime = null;
-let runtimeUrls = null;
 let judgeWorker = null;
 let judgeReady = null;
 let pendingPythonRequest = null;
@@ -2387,7 +2983,6 @@ function setRuntimeStatus(status, message) {
 
 function runtimeAssets() {
   if (decodedRuntime) return decodedRuntime;
-  setRuntimeStatus("loading", "正在读取内嵌 Python 运行时…");
   const decoder = new TextDecoder();
   const loaderBytes = bytesFromBase64(RUNTIME_BASE64.loader);
   const asmModuleBytes = bytesFromBase64(RUNTIME_BASE64.asmModule);
@@ -2400,28 +2995,6 @@ function runtimeAssets() {
   };
   for (const key of Object.keys(RUNTIME_BASE64)) RUNTIME_BASE64[key] = "";
   return decodedRuntime;
-}
-
-function runtimeObjectUrls() {
-  if (runtimeUrls) return runtimeUrls;
-  setRuntimeStatus("loading", "正在准备内嵌 Python 运行时…");
-  const runtime = runtimeAssets();
-  runtimeUrls = {
-    loaderUrl: URL.createObjectURL(new Blob([runtime.loaderSource], { type: "text/javascript" })),
-    asmModuleUrl: URL.createObjectURL(new Blob([runtime.asmModuleSource], { type: "text/javascript" })),
-    wasmUrl: URL.createObjectURL(new Blob([runtime.wasmBytes], { type: "application/wasm" })),
-    stdlibUrl: URL.createObjectURL(new Blob([runtime.stdlibBytes], { type: "application/zip" })),
-    lock: runtime.lock,
-  };
-  return runtimeUrls;
-}
-
-function revokeRuntimeObjectUrls() {
-  if (!runtimeUrls) return;
-  for (const value of Object.values(runtimeUrls)) {
-    if (typeof value === "string" && value.startsWith("blob:")) URL.revokeObjectURL(value);
-  }
-  runtimeUrls = null;
 }
 
 function destroyJudge(reason) {
@@ -2448,7 +3021,6 @@ function startWorkerJudge() {
     const fail = (error) => {
       if (initTimer) clearTimeout(initTimer);
       revokeWorkerUrl();
-      revokeRuntimeObjectUrls();
       if (worker) worker.terminate();
       if (judgeWorker === worker) judgeWorker = null;
       if (!initialized) {
@@ -2472,9 +3044,8 @@ function startWorkerJudge() {
           initialized = true;
           clearTimeout(initTimer);
           revokeWorkerUrl();
-          revokeRuntimeObjectUrls();
           setRuntimeStatus("ready", "离线 Python 已就绪");
-          resolve({ kind: "worker", worker });
+          resolve(worker);
         } else if (message.type === "init-error") {
           fail(new Error(message.error));
         } else if (pendingPythonRequest?.id === message.id && message.type === `${pendingPythonRequest.type}-result`) {
@@ -2484,13 +3055,13 @@ function startWorkerJudge() {
         }
       };
       worker.onerror = (event) => {
-        event.preventDefault?.();
+        event.preventDefault();
         const location = event.filename ? ` (${event.filename}:${event.lineno || 0})` : "";
         fail(new Error(`${event.message || "Python Worker 发生错误"}${location}`));
       };
       worker.postMessage({
         type: "init",
-        runtime: runtimeObjectUrls(),
+        runtime: runtimeAssets(),
         harness: PYTHON_HARNESS,
         formatterBundle: FORMATTER_BUNDLE,
         formatterScript: PYTHON_FORMATTER,
@@ -2501,56 +3072,10 @@ function startWorkerJudge() {
   });
 }
 
-async function startMainThreadJudge(workerError) {
-  console.warn("Python Worker 不可用，切换到本页兼容模式：", workerError);
-  revokeRuntimeObjectUrls();
-  setRuntimeStatus("loading", "兼容模式：正在解析内嵌模块…");
-  const runtime = runtimeAssets();
-  const loaderSource = runtime.loaderSource.replace(
-    /export\{dt as loadPyodide,U as version\};?/,
-    "return { loadPyodide: dt, version: U };",
-  );
-  const asmModuleSource = runtime.asmModuleSource
-    .replaceAll("import.meta.url", JSON.stringify("https://offline.local/pyodide.asm.mjs"))
-    .replace(/export default _createPyodideModule;?/, "return _createPyodideModule;");
-  if (!loaderSource.includes("return { loadPyodide: dt") || !asmModuleSource.includes("return _createPyodideModule")) {
-    throw new Error("无法解析内嵌 Python 模块");
-  }
-  const loader = new Function(`${loaderSource}\n//# sourceURL=lc-pyodide-loader.js`)();
-  const createPyodideModule = new Function(`${asmModuleSource}\n//# sourceURL=lc-pyodide-asm.js`)();
-  const originalFetch = globalThis.fetch;
-  const nativeFetch = originalFetch.bind(globalThis);
-  globalThis.fetch = (input, options) => {
-    const url = typeof input === "string" ? input : (input?.url || input?.href || String(input));
-    if (url === "https://offline.local/pyodide.asm.wasm") {
-      return Promise.resolve(new Response(runtime.wasmBytes, { status: 200, headers: { "Content-Type": "application/wasm" } }));
-    }
-    if (url === "https://offline.local/python_stdlib.zip") {
-      return Promise.resolve(new Response(runtime.stdlibBytes, { status: 200, headers: { "Content-Type": "application/zip" } }));
-    }
-    return nativeFetch(input, options);
-  };
-  try {
-    setRuntimeStatus("loading", "兼容模式：正在编译内嵌 Python…");
-    const pyodide = await loader.loadPyodide({
-      indexURL: "https://offline.local/",
-      stdLibURL: "https://offline.local/python_stdlib.zip",
-      lockFileContents: runtime.lock,
-      packageBaseUrl: "https://offline.local/",
-      createPyodideModule,
-    });
-    setRuntimeStatus("ready", "离线 Python 已就绪（兼容模式）");
-    return { kind: "main", pyodide };
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-}
-
 function ensureJudge() {
   if (judgeReady) return judgeReady;
   setRuntimeStatus("loading", "正在启动内嵌 Python 运行时…");
   judgeReady = startWorkerJudge()
-    .catch((workerError) => startMainThreadJudge(workerError))
     .catch((error) => {
       judgeReady = null;
       setRuntimeStatus("", "Python 运行时启动失败");
@@ -2559,29 +3084,14 @@ function ensureJudge() {
   return judgeReady;
 }
 
-async function runMainThreadPython(pyodide, globals, script) {
-  for (const [name, value] of Object.entries(globals)) pyodide.globals.set(name, value);
-  return JSON.parse(await pyodide.runPythonAsync(script));
-}
-
 async function evaluate(payload, timeoutMs) {
-  const backend = await ensureJudge();
-  if (backend.kind === "main") {
-    return runMainThreadPython(backend.pyodide, { payload_json: JSON.stringify(payload) }, `${PYTHON_HARNESS}\nRESULT_JSON`);
-  }
-  return requestPythonWorker(backend.worker, "run", { payload }, timeoutMs);
+  const worker = await ensureJudge();
+  return requestPythonWorker(worker, "run", { payload }, timeoutMs);
 }
 
 async function formatPythonSource(source, timeoutMs = 12000) {
-  const backend = await ensureJudge();
-  if (backend.kind === "main") {
-    return runMainThreadPython(backend.pyodide, {
-      formatter_bundle_json: JSON.stringify(FORMATTER_BUNDLE),
-      formatter_line_length: FORMATTER_BUNDLE.lineLength,
-      formatter_source: source,
-    }, `${PYTHON_FORMATTER}\nFORMAT_RESULT_JSON`);
-  }
-  return requestPythonWorker(backend.worker, "format", { source }, timeoutMs);
+  const worker = await ensureJudge();
+  return requestPythonWorker(worker, "format", { source }, timeoutMs);
 }
 
 function requestPythonWorker(worker, type, payload, timeoutMs) {
@@ -2606,9 +3116,7 @@ function requestPythonWorker(worker, type, payload, timeoutMs) {
 }
 
 function prewarmJudge() {
-  const start = () => ensureJudge().catch((error) => console.warn("离线 Python 预热失败：", error));
-  if ("requestIdleCallback" in window) window.requestIdleCallback(start, { timeout: 1500 });
-  else setTimeout(start, 500);
+  setTimeout(() => ensureJudge().catch((error) => console.warn("离线 Python 预热失败：", error)), 500);
 }
 
 function renderResults(result, mode) {
@@ -2632,6 +3140,7 @@ function renderResults(result, mode) {
         <div class="case-field"><span class="case-label">期望</span><pre class="case-value">${escapeHtml(item.expected)}</pre></div>
         <div class="case-field"><span class="case-label">实际</span><pre class="case-value">${escapeHtml(item.actual)}</pre></div>
         ${item.stdout ? `<div class="case-field"><span class="case-label">标准输出</span><pre class="case-value">${escapeHtml(item.stdout)}</pre></div>` : ""}
+        ${item.stderr ? `<div class="case-field"><span class="case-label">标准错误</span><pre class="case-value error">${escapeHtml(item.stderr)}</pre></div>` : ""}
         ${item.error ? `<div class="case-field"><span class="case-label">异常</span><pre class="case-value error">${escapeHtml(item.error)}</pre></div>` : ""}
       </div>
     </article>`;
@@ -2685,8 +3194,7 @@ function restoreLastCodeFormat(redo = false) {
 function setEvaluationBusy(busy, mode) {
   evaluationInProgress = busy;
   elements.result_panel.setAttribute("aria-busy", String(busy));
-  for (const button of [elements.custom_case_button, elements.run_button, elements.submit_button]) button.disabled = busy;
-  elements.format_code_button.disabled = busy;
+  for (const button of taskControlButtons) button.disabled = busy;
   elements.run_button.textContent = busy && mode === "sample" ? "运行中…" : "运行";
   elements.submit_button.textContent = busy && mode === "submit" ? "提交中…" : "提交";
 }
@@ -2695,7 +3203,7 @@ function setFormattingBusy(busy) {
   formattingInProgress = busy;
   elements.code_editor.readOnly = busy;
   elements.code_editor.setAttribute("aria-busy", String(busy));
-  for (const button of [elements.format_code_button, elements.custom_case_button, elements.run_button, elements.submit_button]) button.disabled = busy;
+  for (const button of taskControlButtons) button.disabled = busy;
   elements.format_code_button.textContent = busy ? "格式化中…" : "格式化";
 }
 
@@ -2753,23 +3261,37 @@ async function runEvaluation(mode) {
   if (evaluationInProgress) return toast("评测正在运行，请稍候", "error");
   if (formattingInProgress) return toast("代码正在格式化，请稍候", "error");
   const slug = currentSlug;
+  const codeMode = state.settings.codeMode;
   const solution = SOLUTIONS[slug];
   const code = elements.code_editor.value;
   if (!code.trim()) return toast("请先输入 Python 代码", "error");
   touchRecord("code");
   const tests = mode === "sample" ? solution.tests.slice(0, Math.min(2, solution.tests.length)) : solution.tests;
   const { code: referenceCode, tests: _tests, note: _note, complexity: _complexity, ...meta } = solution;
-  const cases = tests.map((value, index) => ({ index, visible: index < 2, value }));
+  const cases = tests.map((value, index) => ({
+    index,
+    visible: index < 2,
+    value,
+    ...(codeMode === "acm" ? { stdin: formatAcmCase(value, solution) } : {}),
+  }));
   if (mode === "sample") {
     for (const [index, source] of customCasesFor(slug).entries()) {
       try {
-        cases.push({ index: cases.length, visible: true, label: `自定义样例 ${index + 1}`, value: parseCustomCase(source, solution) });
+        const value = parseCustomCase(source, solution);
+        cases.push({
+          index: cases.length,
+          visible: true,
+          label: `自定义样例 ${index + 1}`,
+          value,
+          ...(codeMode === "acm" ? { stdin: formatAcmCase(value, solution) } : {}),
+        });
       } catch (error) {
         return toast(`自定义样例 ${index + 1} 无效：${error.message}`, "error");
       }
     }
   }
   const payload = {
+    mode: codeMode === "acm" ? "acm" : "core",
     userCode: code,
     referenceCode,
     meta,
@@ -2789,13 +3311,13 @@ async function runEvaluation(mode) {
     }
     record.updatedAt = updatedAt;
     saveState(true);
-    if (currentSlug === slug) {
+    if (currentSlug === slug && state.settings.codeMode === codeMode) {
       renderResults(result, mode);
       updateMasteredButton();
       if (mode === "submit" && result.passed) toast("全部本地用例通过，已记录进度");
     }
   } catch (error) {
-    if (currentSlug === slug) {
+    if (currentSlug === slug && state.settings.codeMode === codeMode) {
       renderResults({ fatal: error.message || String(error) }, mode);
       toast(error.message || "评测失败", "error");
     }
@@ -2914,14 +3436,16 @@ elements.code_editor.addEventListener("keydown", (event) => {
 elements.notes_editor.addEventListener("input", () => { touchRecord("note"); showSavePulse(elements.notes_save_state); });
 elements.font_down_button.addEventListener("click", () => changeEditorSize(-1));
 elements.font_up_button.addEventListener("click", () => changeEditorSize(1));
+elements.core_mode_button.addEventListener("click", () => { if (state.settings.codeMode !== "core") setCodeMode("core"); });
+elements.acm_mode_button.addEventListener("click", () => { if (state.settings.codeMode !== "acm") setCodeMode("acm"); });
 elements.format_code_button.addEventListener("click", formatCurrentCode);
 elements.reset_code_button.addEventListener("click", () => {
-  if (!currentSlug || !confirm("确定把当前代码恢复为初始模板吗？个人笔记和进度不会改变。")) return;
-  elements.code_editor.value = bySlug.get(currentSlug).problem.starterCode; updateCodeHighlight(); touchRecord("code"); updateCursorPosition(); toast("已恢复初始模板");
+  if (!currentSlug || !confirm(`确定把当前${state.settings.codeMode === "acm" ? " ACM" : "核心"}代码恢复为初始模板吗？个人笔记和进度不会改变。`)) return;
+  elements.code_editor.value = codeTemplateFor(bySlug.get(currentSlug).problem); updateCodeHighlight(); touchRecord("code"); updateCursorPosition(); toast("已恢复初始模板");
 });
 elements.copy_solution_button.addEventListener("click", async () => {
   try {
-    await copyText(SOLUTIONS[currentSlug].code);
+    await copyText(referenceCodeForMode(SOLUTIONS[currentSlug]));
     toast("参考代码已复制");
   } catch (error) {
     toast(error.message || "复制失败", "error");

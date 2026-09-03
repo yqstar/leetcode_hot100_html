@@ -1,5 +1,5 @@
 const pythonHarness = String.raw`
-import json, copy, io, math, time, traceback, contextlib
+import json, copy, io, math, sys, time, traceback, contextlib
 from collections import deque
 from typing import *
 
@@ -61,22 +61,14 @@ def tree_nodes(root):
         if node.right: queue.append(node.right)
     return result
 
-def find_tree_node(root, value):
-    for node in tree_nodes(root):
-        if node.val == value:
-            return node
-    return None
-
 def randomlist_from(values):
-    if not values:
-        return None
     nodes = [Node(item[0]) for item in values]
     for index, item in enumerate(values):
         if index + 1 < len(nodes):
             nodes[index].next = nodes[index + 1]
         if item[1] is not None:
             nodes[index].random = nodes[item[1]]
-    return nodes[0]
+    return nodes[0] if nodes else None
 
 def listnode_to_values(head, limit=10000):
     values, seen = [], set()
@@ -167,8 +159,11 @@ def setup_case(meta, raw_case):
     if setup == 'lca':
         values, p_value, q_value = raw_case
         root = tree_from(values)
-        context['nodes'] = tree_nodes(root)
-        return [root, find_tree_node(root, p_value), find_tree_node(root, q_value)], context
+        nodes = tree_nodes(root)
+        context['nodes'] = nodes
+        p = next((node for node in nodes if node.val == p_value), None)
+        q = next((node for node in nodes if node.val == q_value), None)
+        return [root, p, q], context
 
     kinds = meta.get('argKinds') or []
     args = []
@@ -203,10 +198,17 @@ def is_balanced_bst(root):
     _, balanced = walk(root)
     return {'inorder': inorder, 'balanced': balanced}
 
+def normalize_collection(result, output):
+    if output in ('groups', 'rows-sorted'):
+        return sorted([sorted(row, key=json_key) for row in result], key=json_key)
+    if output in ('rows', 'unordered', 'sorted'):
+        return sorted(result, key=json_key)
+    return result
+
 def normalize(result, meta, args, context, raw_case):
     output = meta.get('output', 'default')
     if output == 'mutated':
-        return to_plain(args[meta.get('mutationArg', 0)])
+        return to_plain(args[0])
     if output == 'listnode':
         return listnode_to_values(result)
     if output == 'tree':
@@ -224,10 +226,8 @@ def normalize(result, meta, args, context, raw_case):
         for index, node in enumerate(context.get('nodes', [])):
             if result is node: return index
         return -2
-    if output == 'node-value':
-        return result.val if result else None
     if output == 'flatten':
-        root = args[meta.get('mutationArg', 0)]
+        root = args[0]
         values, seen, valid = [], set(), True
         while root and len(values) < 10000:
             if id(root) in seen or root.left is not None:
@@ -236,23 +236,11 @@ def normalize(result, meta, args, context, raw_case):
         return {'valid': valid, 'values': values}
     if output == 'balanced-bst':
         return is_balanced_bst(result)
-    if output == 'groups':
-        groups = [sorted(to_plain(group), key=json_key) for group in result]
-        return sorted(groups, key=json_key)
-    if output == 'rows':
-        return sorted(to_plain(result), key=json_key)
-    if output == 'rows-sorted':
-        rows = [sorted(to_plain(row), key=json_key) for row in result]
-        return sorted(rows, key=json_key)
-    if output == 'unordered':
-        return sorted(to_plain(result), key=json_key)
-    if output == 'sorted':
-        return sorted(to_plain(result), key=json_key)
     if output == 'palindrome':
         source = raw_case[0]
         valid = isinstance(result, str) and result == result[::-1] and result in source
         return {'valid': valid, 'length': len(result) if isinstance(result, str) else -1}
-    return to_plain(result)
+    return normalize_collection(to_plain(result), output)
 
 def namespace():
     return {
@@ -304,8 +292,128 @@ def safe_display(value):
     text = json.dumps(value, ensure_ascii=False, sort_keys=True)
     return text if len(text) <= 5000 else text[:5000] + '…'
 
+def parse_acm_scalar(token, example):
+    token = token.strip()
+    if example is None:
+        return None if token.lower() in ('null', 'none') else token
+    if isinstance(example, bool):
+        if token.lower() in ('true', '1', 'yes'): return True
+        if token.lower() in ('false', '0', 'no'): return False
+        return token
+    if isinstance(example, int) and not isinstance(example, bool):
+        try: return int(token)
+        except Exception: return token
+    if isinstance(example, float):
+        try: return float(token)
+        except Exception: return token
+    return '' if isinstance(example, str) and example == '' and token == '""' else token
+
+def acm_list_depth(value):
+    depth = 0
+    while isinstance(value, list):
+        depth += 1
+        value = value[0] if value else None
+    return depth
+
+def parse_acm_flat(text, examples):
+    tokens = text.split()
+    if not examples:
+        return [] if not tokens else tokens
+    return [parse_acm_scalar(token, examples[min(index, len(examples) - 1)]) for index, token in enumerate(tokens)]
+
+def parse_acm_rows(text, examples):
+    lines = [line for line in text.splitlines() if line.strip()]
+    if not examples:
+        return [] if not lines else [line.split() for line in lines]
+    fallback = next((row for row in examples if isinstance(row, list) and row), [])
+    return [
+        [] if line.strip() == '-' else parse_acm_flat(
+            line,
+            examples[min(index, len(examples) - 1)] or fallback,
+        )
+        for index, line in enumerate(lines)
+    ]
+
+def parse_acm_output(stdout, expected, meta):
+    text = stdout.strip()
+    output = meta.get('output', 'default')
+    if output == 'palindrome':
+        return text
+    if output == 'randomlist':
+        return parse_acm_rows(text, expected.get('values', []))
+    if output == 'flatten':
+        return parse_acm_flat(text, expected.get('values', []))
+    if output == 'balanced-bst':
+        tokens = text.split()
+        return [None if token.lower() in ('null', 'none') else int(token) for token in tokens]
+    if isinstance(expected, list):
+        depth = acm_list_depth(expected)
+        if depth <= 1:
+            return parse_acm_flat(text, expected)
+        if depth == 2:
+            return parse_acm_rows(text, expected)
+    if not text:
+        return None
+    return parse_acm_scalar(text, expected)
+
+def format_acm_scalar(value):
+    if value is None: return 'null'
+    if isinstance(value, bool): return 'true' if value else 'false'
+    if value == '': return '""'
+    return str(value)
+
+def format_acm_plain(value):
+    if not isinstance(value, list):
+        return format_acm_scalar(value)
+    depth = acm_list_depth(value)
+    if depth <= 1:
+        return ' '.join(format_acm_scalar(item) for item in value)
+    return '\n'.join(' '.join(format_acm_scalar(item) for item in row) if row else '-' for row in value)
+
+def format_acm_output(value, meta):
+    output = meta.get('output', 'default')
+    if output == 'randomlist': return format_acm_plain(value.get('values', []))
+    if output == 'flatten': return format_acm_plain(value.get('values', []))
+    if output == 'balanced-bst': return '输出任意满足条件的平衡 BST 层序序列'
+    if output == 'palindrome': return f"输出任意长度为 {value.get('length', 0)} 的最长回文子串"
+    return format_acm_plain(value)
+
+def normalize_acm(result, meta, raw_case):
+    output = meta.get('output', 'default')
+    result = to_plain(result)
+    if output == 'randomlist' and isinstance(result, list):
+        return {'values': result, 'distinct': True}
+    if output == 'flatten' and isinstance(result, list):
+        return {'valid': True, 'values': result}
+    if output == 'balanced-bst' and isinstance(result, list):
+        return is_balanced_bst(tree_from(result))
+    if output == 'palindrome' and isinstance(result, str):
+        source = raw_case[0]
+        return {'valid': result == result[::-1] and result in source, 'length': len(result)}
+    return normalize_collection(result, output)
+
+def execute_acm(source, meta, raw_case, stdin, expected):
+    stdin = stdin + ('' if stdin.endswith('\n') else '\n')
+    input_buffer = io.TextIOWrapper(io.BytesIO(stdin.encode('utf-8')), encoding='utf-8')
+    output_buffer = io.StringIO()
+    error_buffer = io.StringIO()
+    previous_stdin = sys.stdin
+    try:
+        sys.stdin = input_buffer
+        with contextlib.redirect_stdout(output_buffer), contextlib.redirect_stderr(error_buffer):
+            exec(source, namespace())
+    except SystemExit as exc:
+        if exc.code not in (None, 0):
+            raise RuntimeError(f'程序以状态码 {exc.code} 退出') from None
+    finally:
+        sys.stdin = previous_stdin
+    stdout = output_buffer.getvalue()
+    stderr = error_buffer.getvalue()
+    return normalize_acm(parse_acm_output(stdout, expected, meta), meta, raw_case), stdout, stderr, stdin
+
 def run_payload(payload):
     meta = payload['meta']
+    acm = payload.get('mode') == 'acm'
     results = []
     for item in payload['cases']:
         raw_case = item['value']
@@ -315,18 +423,24 @@ def run_payload(payload):
         except Exception:
             return {'fatal': '内置参考实现执行失败', 'detail': traceback.format_exc()}
         try:
-            actual, stdout = execute(payload['userCode'], meta, raw_case)
+            if acm:
+                actual, stdout, stderr, stdin = execute_acm(payload['userCode'], meta, raw_case, item['stdin'], expected)
+            else:
+                actual, stdout = execute(payload['userCode'], meta, raw_case)
+                stderr, stdin = '', safe_display(to_plain(raw_case))
             passed = values_equal(actual, expected, meta.get('output', 'default'))
             error = None
         except Exception:
-            actual, stdout, passed = None, '', False
+            actual, stdout, stderr, passed = None, '', '', False
+            stdin = item.get('stdin', '') if acm else safe_display(to_plain(raw_case))
             error = traceback.format_exc(limit=8)
         results.append({
             'index': item['index'], 'visible': item.get('visible', False),
             'label': item.get('label'),
-            'passed': passed, 'input': safe_display(to_plain(raw_case)),
-            'expected': safe_display(expected), 'actual': safe_display(actual),
-            'stdout': stdout[-4000:], 'error': error,
+            'passed': passed, 'input': stdin.rstrip('\n'),
+            'expected': format_acm_output(expected, meta) if acm else safe_display(expected),
+            'actual': stdout.strip() if acm else safe_display(actual),
+            'stdout': '' if acm else stdout[-4000:], 'stderr': stderr[-4000:], 'error': error,
             'durationMs': round((time.perf_counter() - started) * 1000, 2),
         })
     return {'results': results, 'passed': all(item['passed'] for item in results)}

@@ -46,7 +46,7 @@ const solutions = {
                 write += 1
         nums[write:] = [0] * (len(nums) - write)`, [
     [[0, 1, 0, 3, 12]], [[0]], [[1, 2, 3]], [[0, 0, 1]],
-  ], { output: "mutated", mutationArg: 0 }),
+  ], { output: "mutated" }),
 
   "container-with-most-water": S("maxArea", "左右指针从两端开始。面积受短板限制，因此每次移动较短的一侧，才可能获得更大的有效高度。", "时间 O(n)，空间 O(1)", String.raw`class Solution:
     def maxArea(self, height):
@@ -203,7 +203,7 @@ const solutions = {
         nums[:k] = reversed(nums[:k])
         nums[k:] = reversed(nums[k:])`, [
     [[1, 2, 3, 4, 5, 6, 7], 3], [[-1, -100, 3, 99], 2], [[1], 5], [[1, 2], 0],
-  ], { output: "mutated", mutationArg: 0 }),
+  ], { output: "mutated" }),
 
   "product-of-array-except-self": S("productExceptSelf", "先写入每个位置左侧元素的乘积，再从右向左乘上右侧乘积。", "时间 O(n)，额外空间 O(1)", String.raw`class Solution:
     def productExceptSelf(self, nums):
@@ -247,7 +247,7 @@ const solutions = {
                     matrix[r][c] = 0
             if first_col: matrix[r][0] = 0`, [
     [[[1, 1, 1], [1, 0, 1], [1, 1, 1]]], [[[0, 1, 2, 0], [3, 4, 5, 2], [1, 3, 1, 5]]], [[[1, 0]]], [[[1], [0], [3]]],
-  ], { output: "mutated", mutationArg: 0 }),
+  ], { output: "mutated" }),
 
   "spiral-matrix": S("spiralOrder", "逐层维护上、下、左、右边界，按右、下、左、上的顺序遍历并收缩边界。", "时间 O(mn)，空间 O(1)，不计答案", String.raw`class Solution:
     def spiralOrder(self, matrix):
@@ -274,7 +274,7 @@ const solutions = {
                 matrix[r][c], matrix[c][r] = matrix[c][r], matrix[r][c]
         for row in matrix: row.reverse()`, [
     [[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], [[[5, 1, 9, 11], [2, 4, 8, 10], [13, 3, 6, 7], [15, 14, 12, 16]]], [[[1]]], [[[1, 2], [3, 4]]],
-  ], { output: "mutated", mutationArg: 0 }),
+  ], { output: "mutated" }),
 
   "search-a-2d-matrix-ii": S("searchMatrix", "从右上角开始：当前值太大就左移，太小就下移，每一步排除一行或一列。", "时间 O(m+n)，空间 O(1)", String.raw`class Solution:
     def searchMatrix(self, matrix, target):
@@ -639,7 +639,7 @@ class LRUCache:
             node.right = prev; node.left = None; prev = node
         visit(root)`, [
     [[1, 2, 5, 3, 4, null, 6]], [[]], [[0]], [[1, 2, null, 3]],
-  ], { argKinds: ["tree"], output: "flatten", mutationArg: 0 }),
+  ], { argKinds: ["tree"], output: "flatten" }),
 
   "construct-binary-tree-from-preorder-and-inorder-traversal": S("buildTree", "前序首元素是根；用哈希表在中序中定位根，再按左右子树长度递归切分。", "时间 O(n)，空间 O(n)", String.raw`class Solution:
     def buildTree(self, preorder, inorder):
@@ -1303,7 +1303,7 @@ class LRUCache:
                 nums[right], nums[i] = nums[i], nums[right]; right -= 1
             else: i += 1`, [
     [[2,0,2,1,1,0]], [[2,0,1]], [[0]], [[1,2,0,1]],
-  ], { output: "mutated", mutationArg: 0 }),
+  ], { output: "mutated" }),
 
   "next-permutation": S("nextPermutation", "从右向左找第一个下降位置，与右侧刚好更大的数交换，再反转后缀得到最小增量。", "时间 O(n)，空间 O(1)", String.raw`class Solution:
     def nextPermutation(self, nums):
@@ -1315,7 +1315,7 @@ class LRUCache:
             nums[i], nums[j] = nums[j], nums[i]
         nums[i + 1:] = reversed(nums[i + 1:])`, [
     [[1,2,3]], [[3,2,1]], [[1,1,5]], [[1,3,2]],
-  ], { output: "mutated", mutationArg: 0 }),
+  ], { output: "mutated" }),
 
   "find-the-duplicate-number": S("findDuplicate", "把 nums[i] 看成链表后继，下标 0 为起点；Floyd 快慢指针先相遇，再从起点同步找到环入口。", "时间 O(n)，空间 O(1)", String.raw`class Solution:
     def findDuplicate(self, nums):
