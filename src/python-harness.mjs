@@ -1,7 +1,7 @@
 const pythonHarness = String.raw`
 import json, copy, io, math, sys, time, traceback, contextlib
 from collections import deque
-from typing import *
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple
 
 class ListNode:
     def __init__(self, val=0, next=None):
@@ -206,7 +206,7 @@ def normalize_collection(result, output):
     return result
 
 def normalize(result, meta, args, context, raw_case):
-    output = meta.get('output', 'default')
+    output = meta['output']
     if output == 'mutated':
         return to_plain(args[0])
     if output == 'listnode':
@@ -256,7 +256,7 @@ def execute(source, meta, raw_case):
     output_buffer = io.StringIO()
     with contextlib.redirect_stdout(output_buffer):
         exec(source, ns)
-        if meta.get('kind') == 'class':
+        if meta['kind'] == 'class':
             operations = raw_case.get('ops') if isinstance(raw_case, dict) else None
             operation_args = raw_case.get('args') if isinstance(raw_case, dict) else None
             if not isinstance(operations, list) or not isinstance(operation_args, list) or not operations:
@@ -297,15 +297,15 @@ def parse_acm_scalar(token, example):
     if example is None:
         return None if token.lower() in ('null', 'none') else token
     if isinstance(example, bool):
-        if token.lower() in ('true', '1', 'yes'): return True
-        if token.lower() in ('false', '0', 'no'): return False
+        if token.lower() in ('true', '1'): return True
+        if token.lower() in ('false', '0'): return False
         return token
     if isinstance(example, int) and not isinstance(example, bool):
         try: return int(token)
-        except Exception: return token
+        except ValueError: return token
     if isinstance(example, float):
         try: return float(token)
-        except Exception: return token
+        except ValueError: return token
     return '' if isinstance(example, str) and example == '' and token == '""' else token
 
 def acm_list_depth(value):
@@ -318,13 +318,13 @@ def acm_list_depth(value):
 def parse_acm_flat(text, examples):
     tokens = text.split()
     if not examples:
-        return [] if not tokens else tokens
+        return tokens
     return [parse_acm_scalar(token, examples[min(index, len(examples) - 1)]) for index, token in enumerate(tokens)]
 
 def parse_acm_rows(text, examples):
     lines = [line for line in text.splitlines() if line.strip()]
     if not examples:
-        return [] if not lines else [line.split() for line in lines]
+        return [line.split() for line in lines]
     fallback = next((row for row in examples if isinstance(row, list) and row), [])
     return [
         [] if line.strip() == '-' else parse_acm_flat(
@@ -336,7 +336,7 @@ def parse_acm_rows(text, examples):
 
 def parse_acm_output(stdout, expected, meta):
     text = stdout.strip()
-    output = meta.get('output', 'default')
+    output = meta['output']
     if output == 'palindrome':
         return text
     if output == 'randomlist':
@@ -371,15 +371,14 @@ def format_acm_plain(value):
     return '\n'.join(' '.join(format_acm_scalar(item) for item in row) if row else '-' for row in value)
 
 def format_acm_output(value, meta):
-    output = meta.get('output', 'default')
-    if output == 'randomlist': return format_acm_plain(value.get('values', []))
-    if output == 'flatten': return format_acm_plain(value.get('values', []))
+    output = meta['output']
+    if output in ('randomlist', 'flatten'): return format_acm_plain(value.get('values', []))
     if output == 'balanced-bst': return '输出任意满足条件的平衡 BST 层序序列'
     if output == 'palindrome': return f"输出任意长度为 {value.get('length', 0)} 的最长回文子串"
     return format_acm_plain(value)
 
 def normalize_acm(result, meta, raw_case):
-    output = meta.get('output', 'default')
+    output = meta['output']
     result = to_plain(result)
     if output == 'randomlist' and isinstance(result, list):
         return {'values': result, 'distinct': True}
@@ -413,10 +412,11 @@ def execute_acm(source, meta, raw_case, stdin, expected):
 
 def run_payload(payload):
     meta = payload['meta']
-    acm = payload.get('mode') == 'acm'
+    acm = payload['mode'] == 'acm'
     results = []
     for item in payload['cases']:
         raw_case = item['value']
+        stdin = item['stdin'] if acm else safe_display(to_plain(raw_case))
         started = time.perf_counter()
         try:
             expected, _ = execute(payload['referenceCode'], meta, raw_case)
@@ -427,15 +427,14 @@ def run_payload(payload):
                 actual, stdout, stderr, stdin = execute_acm(payload['userCode'], meta, raw_case, item['stdin'], expected)
             else:
                 actual, stdout = execute(payload['userCode'], meta, raw_case)
-                stderr, stdin = '', safe_display(to_plain(raw_case))
-            passed = values_equal(actual, expected, meta.get('output', 'default'))
+                stderr = ''
+            passed = values_equal(actual, expected, meta['output'])
             error = None
         except Exception:
             actual, stdout, stderr, passed = None, '', '', False
-            stdin = item.get('stdin', '') if acm else safe_display(to_plain(raw_case))
             error = traceback.format_exc(limit=8)
         results.append({
-            'index': item['index'], 'visible': item.get('visible', False),
+            'index': item['index'], 'visible': item['visible'],
             'label': item.get('label'),
             'passed': passed, 'input': stdin.rstrip('\n'),
             'expected': format_acm_output(expected, meta) if acm else safe_display(expected),

@@ -11,8 +11,11 @@ import pythonHarness from "../src/python-harness.mjs";
 const root = new URL("../", import.meta.url);
 const runtimeUrl = new URL(".cache/runtime/", root);
 const formatterUrl = new URL("src/vendor/black-26.5.1/", root);
-const problems = JSON.parse(await readFile(new URL("src/problems.json", root), "utf8"));
+const problems = JSON.parse(await readFile(new URL("src/problems.json", root), "utf8")).map(({
+  category, frontendId, title, englishTitle, slug, difficulty, content, starterCode, tags,
+}) => ({ category, frontendId, title, englishTitle, slug, difficulty, content, starterCode, tags }));
 const formatterManifest = JSON.parse(await readFile(new URL("manifest.json", formatterUrl), "utf8"));
+const PYTHON_TEST_TIMEOUT_MS = 60_000;
 
 const safeJson = (value) => JSON.stringify(value)
   .replaceAll("<", "\\u003c")
@@ -182,6 +185,7 @@ function pythonResults(payloads, failureLabel) {
     encoding: "utf8",
     input: JSON.stringify(payloads),
     maxBuffer: 10 * 1024 * 1024,
+    timeout: PYTHON_TEST_TIMEOUT_MS,
   });
   let parsed;
   try {
@@ -200,6 +204,7 @@ function pythonResults(payloads, failureLabel) {
 function payloadFor(solution, userCode = solution.code, limit = solution.tests.length) {
   const { code: referenceCode, tests, note: _note, complexity: _complexity, ...meta } = solution;
   return {
+    mode: "core",
     userCode,
     referenceCode,
     meta,
@@ -326,7 +331,8 @@ globalThis.payloads = Object.entries(SOLUTIONS).map(([slug, solution]) => {
 
 function verifyExportHelpers(html, check) {
   const start = html.indexOf("function base64FromBytes");
-  const end = html.indexOf("function exportMarkdown", start);
+  const exportDownloadStart = html.indexOf("function exportMarkdown(", start);
+  const end = html.indexOf("function exportMarkdownText", start);
   check(start >= 0 && end > start, "可提取 Markdown 导出辅助函数");
   const context = {
     TextEncoder,
@@ -351,6 +357,61 @@ function verifyExportHelpers(html, check) {
   check(context.helperResult.decoded === sample, "导出文本 UTF-8 编解码可往返");
   check(context.helperResult.note.includes("&#124;") && context.helperResult.note.includes("<br>") && context.helperResult.note.includes("&lt;tag&gt;"), "Markdown 表格笔记转义正确");
   check(context.helperResult.code.startsWith("<code>") && context.helperResult.code.includes("&nbsp;&nbsp;&nbsp;&nbsp;"), "Markdown 表格代码格式正确");
+
+  const recordStart = html.indexOf("function plainObject");
+  const settingsStart = html.indexOf("function normalizeSettings", recordStart);
+  const importStart = html.indexOf("function importMarkdown");
+  const importEnd = html.indexOf("async function copyText", importStart);
+  check(exportDownloadStart > end && recordStart >= 0 && settingsStart > recordStart && importStart >= 0 && importEnd > importStart, "可提取 Markdown 导入导出协议");
+  const existingRecord = {
+    status: "solved", attempts: 3, note: sample, code: "class Solution:\n    pass", acmCode: "print('ACM')",
+    customCases: ["[[1, 2], 3]"], acmCustomCases: ["2\n1 2\n3"], updatedAt: "2026-09-03T00:00:00.000Z", passedAt: "2026-09-03T00:00:00.000Z",
+  };
+  const protocolContext = {
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    btoa: context.btoa,
+    atob: context.atob,
+    escapeHtml: context.escapeHtml,
+    EXPORT_VERSION: 1,
+    VALID_STATUSES: new Set(["todo", "attempted", "solved"]),
+    MAX_CUSTOM_CASES: 20,
+    MAX_CUSTOM_CASE_LENGTH: 50_000,
+    EMPTY_RECORD: Object.freeze({ status: "todo", attempts: 0, note: "", updatedAt: null, passedAt: null }),
+    PROBLEMS: [{ slug: "two-sum", frontendId: "1", title: "两数之和" }],
+    bySlug: new Map([["two-sum", true]]),
+    statistics: () => ({ solved: 1, attempted: 0, noted: 1, submissions: 3 }),
+    recordFor: () => existingRecord,
+    finalizeImport: (importedRecords, skippedCount) => ({ importedRecords, skippedCount }),
+  };
+  const protocolScript = `${html.slice(recordStart, settingsStart)}
+${html.slice(start, exportDownloadStart)}
+${html.slice(importStart, importEnd)}
+const exportedAt = new Date("2026-09-03T08:00:00.000Z");
+const withCodeText = exportMarkdownText(true, exportedAt);
+const withCodeResult = importMarkdown(withCodeText);
+const withCode = withCodeResult.importedRecords.get("two-sum");
+const withoutCodeResult = importMarkdown(exportMarkdownText(false, exportedAt));
+const withoutCode = withoutCodeResult.importedRecords.get("two-sum");
+globalThis.protocolResult = {
+  table: withCodeText,
+  withCode: {
+    status: withCode.status, attempts: withCode.attempts, note: withCode.note,
+    code: withCode.code, acmCode: withCode.acmCode,
+    customCases: withCode.customCases, acmCustomCases: withCode.acmCustomCases,
+  },
+  withoutCode: { code: withoutCode.code, acmCode: withoutCode.acmCode },
+  skipped: withCodeResult.skippedCount + withoutCodeResult.skippedCount,
+};`;
+  new vm.Script(protocolScript, { filename: "export-import-roundtrip.test.js" }).runInNewContext(protocolContext);
+  const protocol = protocolContext.protocolResult;
+  check(protocol.skipped === 0 && protocol.withCode.status === "solved" && protocol.withCode.attempts === 3 && protocol.withCode.note === sample, "Markdown 完整导出导入可恢复进度和 UTF-8 笔记");
+  check(protocol.withCode.code === existingRecord.code && protocol.withCode.acmCode === existingRecord.acmCode
+    && JSON.stringify(protocol.withCode.customCases) === JSON.stringify(existingRecord.customCases)
+    && JSON.stringify(protocol.withCode.acmCustomCases) === JSON.stringify(existingRecord.acmCustomCases), "Markdown 往返会恢复两套代码并保留两套自定义样例");
+  check(protocol.withoutCode.code === existingRecord.code && protocol.withoutCode.acmCode === existingRecord.acmCode
+    && protocol.table.includes("| 题目名 | 笔记 | 个人代码 |"), "不含代码的导入会保留现有代码，含代码的导出包含可读表格");
 }
 
 function verifyStateHelpers(html, check) {
@@ -617,26 +678,15 @@ function verifySyntaxHighlighting(html, check) {
 function verifyFormatterUiHelpers(html, check) {
   const start = html.indexOf("function codePositionAtOffset");
   const end = html.indexOf("function setEvaluationBusy", start);
-  check(start >= 0 && end > start, "可提取格式化光标映射函数");
+  check(start >= 0 && end > start, "可提取格式化光标映射函数且旧撤销拦截已移除");
   const context = { clamp: (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value)) };
   const script = `${html.slice(start, end)}
 const source = "ab\\ncdef";
 globalThis.position = codePositionAtOffset(source, 5);
 globalThis.offset = codeOffsetAtPosition(source, { line: 2, column: 3 });
-globalThis.clampedOffset = codeOffsetAtPosition(source, { line: 99, column: 99 });
-const editor = { value: "after", selectionStart: 5, selectionEnd: 5, selectionDirection: "none", setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; } };
-const elements = { code_editor: editor };
-let currentSlug = "first";
-let lastFormatChange = { slug: "first", before: "before", after: "after", beforeSelection: { start: 2, end: 2 }, afterSelection: { start: 5, end: 5 }, undone: false };
-const notifyCodeInput = () => {};
-const syncCurrentEditors = () => {};
-const toast = () => {};
-globalThis.undoResult = { handled: restoreLastCodeFormat(false), code: editor.value, cursor: editor.selectionStart, undone: lastFormatChange.undone };
-globalThis.redoResult = { handled: restoreLastCodeFormat(true), code: editor.value, cursor: editor.selectionStart, undone: lastFormatChange.undone };`;
+globalThis.clampedOffset = codeOffsetAtPosition(source, { line: 99, column: 99 });`;
   new vm.Script(script, { filename: "formatter-ui.test.js" }).runInNewContext(context);
   check(JSON.stringify(context.position) === JSON.stringify({ line: 2, column: 3 }) && context.offset === 5 && context.clampedOffset === 7, "格式化前后的光标行列可映射并安全限制到代码范围");
-  check(JSON.stringify(context.undoResult) === JSON.stringify({ handled: true, code: "before", cursor: 2, undone: true })
-    && JSON.stringify(context.redoResult) === JSON.stringify({ handled: true, code: "after", cursor: 5, undone: false }), "最近一次 Black 格式化支持撤销与重做并恢复对应光标");
 }
 
 async function testPyodide() {
@@ -683,6 +733,7 @@ async function verifyArtifact(html) {
 
   check(/^<!doctype html>/i.test(html), "包含 HTML5 文档声明");
   check(problems.length === 100, "题目数据恰好 100 道");
+  check(problems.every((problem) => !["rank", "paidOnly", "exampleTestcases", "hints"].some((key) => Object.hasOwn(problem, key))), "构建产物不再携带未使用的题目元数据");
   check(Object.keys(solutions).length === 100, "参考题解恰好 100 份");
   check(new Set(problems.map((problem) => problem.slug)).size === problems.length, "题目 slug 唯一");
   check(new Set(problems.map((problem) => String(problem.frontendId))).size === problems.length, "题号唯一");
@@ -703,20 +754,26 @@ async function verifyArtifact(html) {
   check(new Set(htmlIds).size === htmlIds.length, "HTML 元素 id 唯一");
   const appHeader = staticHtml.slice(staticHtml.indexOf('<header id="app-header"'), staticHtml.indexOf("</header>", staticHtml.indexOf('<header id="app-header"')));
   const editorToolbar = staticHtml.slice(staticHtml.indexOf('<div class="editor-toolbar">'), staticHtml.indexOf('<div class="code-editor-shell">'));
-  check(appHeader.includes('id="core-mode-button"') && appHeader.includes('id="acm-mode-button"')
+  check(appHeader.includes('class="header-preferences"') && appHeader.includes('class="header-utilities"') && appHeader.includes('class="header-data-actions"')
+    && appHeader.includes('id="core-mode-button"') && appHeader.includes('id="acm-mode-button"')
     && appHeader.indexOf('class="offline-pill"') < appHeader.indexOf('class="header-actions"')
     && appHeader.indexOf('id="auto-expand-button"') < appHeader.indexOf('class="code-mode-switch')
     && appHeader.indexOf('class="code-mode-switch') < appHeader.indexOf('id="import-button"')
-    && !editorToolbar.includes("code-mode-switch"), "离线状态靠近品牌，代码模式切换器位于默认展开之后且已从编辑器工具栏移除");
-  check(!staticHtml.includes("-webkit-") && !html.includes("document.execCommand") && !html.includes('addEventListener("beforeunload"'), "已移除私有样式、废弃剪贴板接口与无效卸载监听");
+    && appHeader.includes('>核心</button>') && appHeader.includes('>ACM</button>')
+    && !editorToolbar.includes("code-mode-switch"), "页头按偏好与数据工具分组，离线状态靠近品牌且模式切换使用精简文案");
+  check(!staticHtml.includes("-webkit-") && !staticHtml.includes('wrap="off"') && !staticHtml.includes('focusable="false"')
+    && !html.includes("document.execCommand") && !html.includes('addEventListener("beforeunload"')
+    && !html.includes('app_header.setAttribute("aria-hidden"') && !html.includes('problem_pane.setAttribute("aria-hidden"'), "已移除私有样式、非标准属性、重复隐藏状态与废弃浏览器接口");
   check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64") && html.includes("acmCodeBase64"), "包含核心代码与 ACM 工作区的 Markdown 导入导出协议");
   check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
   check(!html.includes("const STATE_VERSION") && html.includes("const DEFAULT_SETTINGS") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且状态设置使用单一规范化路径");
+  check(html.includes("setCodeMode(state.settings.codeMode, false, false);\nrenderCatalog();\nroute();"), "首页启动时会将本地保存的代码模式同步到页头选中状态");
   check(html.includes('id="pane-resizer"') && html.includes("function constrainedProblemPaneWidth") && html.includes("setProblemPaneWidth") && html.includes("PROBLEM_PANE_DEFAULT = 43"), "题目和代码分栏支持统一约束、调整宽度并持久化");
   check(html.includes('id="catalog-result-count"') && html.includes("mobileWorkspaceMedia"), "目录筛选和移动端单屏工作区完整");
   check(html.includes('id="code-highlight"') && html.includes("function highlightPython") && html.includes("function updateCodeHighlight") && html.includes("py-indent-guide"), "代码编辑器包含离线 Python 语法高亮层与缩进引导线");
   check(html.includes("function indentCodeSelection") && html.includes("function deleteCodeIndent") && html.includes("function insertCodeBracketPair") && html.includes("function toggleCodeComment") && html.includes("function insertIndentedNewline") && html.includes('event.key.toLowerCase() === "s"'), "代码编辑器支持智能缩进、括号补全、切换注释、回车缩进与快捷保存");
-  check(html.includes('id="format-code-button"') && html.includes("function formatCurrentCode") && html.includes("function restoreLastCodeFormat") && html.includes('event.key.toLowerCase() === "f"') && html.includes("formatPythonSource"), "代码编辑器支持按钮和快捷键触发整文件格式化及撤销重做");
+  check(html.includes('id="format-code-button"') && html.includes("function formatCurrentCode") && html.includes('event.key.toLowerCase() === "f"') && html.includes("formatPythonSource")
+    && !html.includes("restoreLastCodeFormat") && !html.includes("lastFormatChange"), "代码编辑器支持整文件格式化且不再拦截浏览器原生撤销重做");
   check(html.includes("black.format_file_contents") && html.includes("fast=False") && formatterManifest.packages.every(({ filename }) => html.includes(filename)), "Black 及校验过的纯 Python 依赖已完整内嵌");
   check(html.includes("第 ${result.line} 行、第 ${result.column} 列附近存在语法错误") && html.includes("codeOffsetAtPosition"), "格式化语法错误会定位具体行列且不会覆盖原代码");
   check(html.includes('id="privacy-view"') && html.includes("function createPrivacyPageModel") && html.includes("const privacyDocumentTitle = renderPrivacyPage()") && html.includes("setPrivacyMode(!privacyMode)"), "双击回车可切换随机内容的独立隐私伪装页并隐藏真实标题");
@@ -728,8 +785,17 @@ async function verifyArtifact(html) {
   check(html.includes("function trapModalFocus") && html.includes('modal.setAttribute("aria-hidden", "false")'), "弹窗会维护可访问状态并限制键盘焦点");
   check(html.includes('id="reset-progress-button"') && html.includes('id="reset-progress-modal"') && html.includes("function resetProgressRecords") && html.includes("个人代码、笔记和自定义样例不会删除"), "目录支持确认后一键重置全部提交进度且保留个人内容");
   check(html.includes("const savePulseTimers = new WeakMap()") && html.includes('document.visibilityState === "hidden"') && html.includes('window.addEventListener("pagehide"'), "保存提示去抖且页面进入后台时立即持久化");
-  check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>') && html.includes('id="custom-case-button"'), "运行与提交操作支持添加自定义样例");
+  check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>')
+    && html.includes('id="custom-case-button"') && html.includes("function renderTestConsole") && html.includes('data-console-view="cases"')
+    && html.includes('data-console-view="results"') && html.includes("function inputFieldsForConsole"), "运行控制台支持测试用例、测试结果、Case 切换及按参数展示输入");
+  check(html.includes("const evaluationControlButtons = [elements.format_code_button")
+    && html.includes("const codeModeSwitch = elements.core_mode_button.parentElement")
+    && !html.includes("formattingControlButtons")
+    && html.match(/for \(const button of evaluationControlButtons\) button\.disabled = busy/g)?.length === 2,
+  "评测与格式化期间均保持核心与 ACM 模式可切换，并由整个分段控件统一处理点击");
   check(html.includes("execute_acm") && html.includes('mode: codeMode === "acm"') && html.includes("solution.tests.slice"), "ACM 模式支持独立代码并复用运行、提交及自定义样例评测");
+  check(pythonHarness.includes("payload['mode']") && pythonHarness.includes("meta['output']")
+    && !pythonHarness.includes("payload.get('mode')") && !pythonHarness.includes("'yes'") && !pythonHarness.includes("'no'"), "评测器使用当前严格协议且仅接受公开的布尔输入格式");
   check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
   check(html.includes("prewarmJudge()") && html.includes("Python 运行时已内置，将自动准备"), "Python 运行时自动预热");

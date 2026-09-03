@@ -61,6 +61,9 @@ jobs:
       - name: Build and test offline files
         run: node scripts/project.mjs test
 
+      - name: Test direct file opening in Chrome
+        run: node scripts/browser-smoke.mjs
+
       - name: Verify release asset
         run: test -s lc_offline_compact.html
 

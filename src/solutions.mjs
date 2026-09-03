@@ -1,5 +1,5 @@
 const S = (method, note, complexity, code, tests, options = {}) => ({
-  method, note, complexity, code, tests, kind: "method", output: "default", ...options,
+  ...(method ? { method } : {}), note, complexity, code, tests, kind: "method", output: "default", ...options,
 });
 
 const solutions = {

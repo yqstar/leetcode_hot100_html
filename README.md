@@ -59,8 +59,9 @@
 ```bash
 node scripts/project.mjs build
 node scripts/project.mjs test
+node scripts/browser-smoke.mjs
 ```
 
-`build` 生成标准版和压缩版，`test` 执行完整构建与功能校验。项目没有第三方 npm 依赖。
+`build` 生成标准版和压缩版，`test` 执行完整构建与功能校验。`browser-smoke.mjs` 使用本机 Chrome/Chromium 验证两个 HTML 在 `file://` 下的真实评测与格式化链路，可通过 `CHROME_PATH` 指定浏览器。项目没有第三方 npm 依赖。
 
 前端结构、样式与交互集中在 `src/app.html`；题目快照、题解和 Python 评测器保持独立，便于分别维护。
