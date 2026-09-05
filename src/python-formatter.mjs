@@ -9,12 +9,12 @@ import zipfile
 
 
 def _lc_prepare_black():
-    if globals().get("_LC_BLACK_READY"):
+    if globals().get("_LC_BLACK"):
         return
     bundle = json.loads(formatter_bundle_json)
     site_packages = "/tmp/lc-black/site-packages"
     os.makedirs(site_packages, exist_ok=True)
-    for filename, encoded in bundle["wheels"].items():
+    for encoded in bundle["wheels"].values():
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
             archive.extractall(site_packages)
     if site_packages not in sys.path:
@@ -22,7 +22,7 @@ def _lc_prepare_black():
     import black
 
     globals()["_LC_BLACK"] = black
-    globals()["_LC_BLACK_READY"] = True
+    globals().pop("formatter_bundle_json", None)
 
 
 def _lc_format_python(source):

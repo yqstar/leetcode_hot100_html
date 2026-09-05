@@ -7,15 +7,33 @@ import vm from "node:vm";
 import solutions from "../src/solutions.mjs";
 import pythonFormatter from "../src/python-formatter.mjs";
 import pythonHarness from "../src/python-harness.mjs";
+import { createBackupTools } from "../src/backup.mjs";
+import { verifyBackupTools } from "./backup-test.mjs";
 
 const root = new URL("../", import.meta.url);
 const runtimeUrl = new URL(".cache/runtime/", root);
 const formatterUrl = new URL("src/vendor/black-26.5.1/", root);
-const problems = JSON.parse(await readFile(new URL("src/problems.json", root), "utf8")).map(({
-  category, frontendId, title, englishTitle, slug, difficulty, content, starterCode, tags,
-}) => ({ category, frontendId, title, englishTitle, slug, difficulty, content, starterCode, tags }));
+const problems = JSON.parse(await readFile(new URL("src/problems.json", root), "utf8"));
 const formatterManifest = JSON.parse(await readFile(new URL("manifest.json", formatterUrl), "utf8"));
 const PYTHON_TEST_TIMEOUT_MS = 60_000;
+
+// Ordered browser sources share one script scope in the standalone HTML. Keeping
+// bundling at build time also lets file:// work without module fetches or a server.
+const UI_SOURCES = ["app", "acm", "dialogs", "filters", "catalog", "workspace", "privacy", "editor", "backup-ui", "judge", "events"];
+
+async function loadApplicationSource() {
+  const [template, styles, ...scripts] = await Promise.all([
+    readFile(new URL("src/app.html", root), "utf8"),
+    readFile(new URL("src/styles.css", root), "utf8"),
+    ...UI_SOURCES.map((name) => readFile(new URL(`src/ui/${name}.js`, root), "utf8")),
+  ]);
+  for (const marker of ["__APP_STYLES__", "__APP_SCRIPT__"]) {
+    if (template.split(marker).length !== 2) throw new Error(`页面入口必须包含一个 ${marker}`);
+  }
+  const script = scripts.map((source, index) => `// src/ui/${UI_SOURCES[index]}.js\n${source}`).join("\n");
+  return template.replace("__APP_STYLES__", () => styles.trimEnd())
+    .replace("__APP_SCRIPT__", () => script.trimEnd());
+}
 
 const safeJson = (value) => JSON.stringify(value)
   .replaceAll("<", "\\u003c")
@@ -33,8 +51,6 @@ async function loadFormatterBundle() {
     return [filename, wheel.toString("base64")];
   }));
   formatterBundleCache = {
-    name: formatterManifest.formatter.name,
-    version: formatterManifest.formatter.version,
     lineLength: formatterManifest.formatter.lineLength,
     wheels: Object.fromEntries(wheelEntries),
   };
@@ -49,24 +65,25 @@ const compactShell = (compressedApp) => `<!doctype html>
   <meta name="description" content="压缩为单个 HTML 的 LC Python 离线训练场">
   <title>LC Python 离线训练场 · 正在启动</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #080b12; color: #e7ecf7; }
-    main { width: min(520px, calc(100% - 40px)); padding: 28px; border: 1px solid #293249; border-radius: 18px; background: #111725; box-shadow: 0 24px 80px #0008; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #111113; color: #f5f5f7; }
+    main { width: min(460px, calc(100% - 40px)); padding: 32px; border: 1px solid #303033; border-radius: 16px; background: #1c1c1e; }
     h1 { margin: 0 0 10px; font-size: 20px; }
-    p { margin: 0; color: #aeb9ce; line-height: 1.7; }
-    .loader { width: 100%; height: 4px; margin-top: 22px; overflow: hidden; border-radius: 99px; background: #252d40; }
-    .loader::after { content: ""; display: block; width: 42%; height: 100%; border-radius: inherit; background: #7c9cff; animation: loading 1.15s ease-in-out infinite alternate; }
-    pre { display: none; margin: 18px 0 0; padding: 12px; overflow: auto; border-radius: 10px; background: #090d16; color: #ffb4b4; white-space: pre-wrap; }
+    p { margin: 0; color: #aeaeb2; line-height: 1.7; }
+    .loader { width: 100%; height: 4px; margin-top: 22px; overflow: hidden; border-radius: 99px; background: #303033; }
+    .loader::after { content: ""; display: block; width: 42%; height: 100%; border-radius: inherit; background: #409cff; animation: loading 1.15s ease-in-out infinite alternate; }
+    pre { display: none; margin: 18px 0 0; padding: 12px; overflow: auto; border-radius: 10px; background: #111113; color: #ffb4b4; white-space: pre-wrap; }
     @keyframes loading { from { transform: translateX(-105%); } to { transform: translateX(245%); } }
+    @media (prefers-reduced-motion: reduce) { .loader::after { animation: none; width: 100%; } }
   </style>
 </head>
 <body>
   <main>
     <h1>正在启动离线训练场</h1>
-    <p id="status">正在从这个 HTML 内解压题目、图片和 Python 运行时…</p>
+    <p id="status" role="status">正在准备题目与 Python 环境，无需联网。</p>
     <div class="loader" id="loader" aria-hidden="true"></div>
-    <pre id="error"></pre>
+    <pre id="error" role="alert"></pre>
   </main>
   <script>
   (() => {
@@ -77,20 +94,23 @@ const compactShell = (compressedApp) => `<!doctype html>
     const errorOutput = document.getElementById("error");
 
     async function start() {
-      if (typeof DecompressionStream !== "function") {
-        throw new Error("当前浏览器不支持本地解压。请升级到最新版 Chrome、Edge、Safari 或 Firefox，或改用 lc_offline.html。");
+      if (typeof DecompressionStream !== "function" || typeof Uint8Array.fromBase64 !== "function") {
+        throw new Error("当前浏览器缺少本地解压或原生 Base64 支持。请升级到最新版 Chrome、Edge、Safari 或 Firefox。");
       }
-      const binary = atob(COMPRESSED_APP);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      const bytes = Uint8Array.fromBase64(COMPRESSED_APP);
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
       const html = await new Response(stream).text();
       if (!/^<!doctype html>/i.test(html) || !html.includes("const PROBLEMS =")) {
         throw new Error("压缩内容校验失败，请重新获取该 HTML 文件。");
       }
-      document.open();
-      document.write(html);
-      document.close();
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      document.documentElement.replaceWith(document.importNode(parsed.documentElement, true));
+      // DOMParser leaves scripts inert; execute the bundled inline application once.
+      for (const source of [...document.scripts]) {
+        const script = document.createElement("script");
+        script.textContent = source.textContent;
+        source.replaceWith(script);
+      }
     }
 
     start().catch((error) => {
@@ -124,7 +144,7 @@ async function writeArtifact(relativePath, buffer) {
 
 async function buildArtifact() {
   const [source, lockText, loader, asmModule, wasm, stdlib, formatterBundle] = await Promise.all([
-    readFile(new URL("src/app.html", root), "utf8"),
+    loadApplicationSource(),
     readFile(new URL("pyodide-lock.json", runtimeUrl), "utf8"),
     readFile(new URL("pyodide.mjs", runtimeUrl)),
     readFile(new URL("pyodide.asm.mjs", runtimeUrl)),
@@ -134,6 +154,7 @@ async function buildArtifact() {
   ]);
   const replacements = {
     __PROBLEMS_JSON__: safeJson(problems),
+    __BACKUP_FACTORY__: createBackupTools.toString(),
     __SOLUTIONS_JSON__: safeJson(solutions),
     __PYTHON_HARNESS_JSON__: safeJson(pythonHarness),
     __PYTHON_FORMATTER_JSON__: safeJson(pythonFormatter),
@@ -145,13 +166,12 @@ async function buildArtifact() {
     __PYODIDE_STDLIB_B64__: stdlib.toString("base64"),
   };
 
-  let output = source;
-  for (const [token, value] of Object.entries(replacements)) {
-    const occurrences = output.split(token).length - 1;
-    if (occurrences !== 1) throw new Error(`构建占位符 ${token} 出现 ${occurrences} 次`);
-    output = output.replace(token, () => value);
-  }
-  if (/__[A-Z][A-Z0-9_]+__/.test(output)) throw new Error("HTML 构建占位符未完整替换");
+  const remaining = new Set(Object.keys(replacements));
+  const output = source.replace(/__[A-Z][A-Z0-9_]+__/g, (token) => {
+    if (!remaining.delete(token)) throw new Error(`未知或重复的构建占位符：${token}`);
+    return replacements[token];
+  });
+  if (remaining.size) throw new Error(`缺少构建占位符：${[...remaining].join(", ")}`);
 
   const outputBuffer = Buffer.from(output);
   const compressedBuffer = gzipSync(outputBuffer, { level: 9 });
@@ -208,7 +228,7 @@ function payloadFor(solution, userCode = solution.code, limit = solution.tests.l
     userCode,
     referenceCode,
     meta,
-    cases: tests.slice(0, limit).map((value, index) => ({ index, visible: index < 2, value })),
+    cases: tests.slice(0, limit).map((value) => ({ value })),
   };
 }
 
@@ -251,22 +271,46 @@ function testNegativeCases() {
 function testCustomCases() {
   const methodSolution = solutions["two-sum"];
   const methodPayload = payloadFor(methodSolution, methodSolution.code, 0);
-  methodPayload.cases = [{ index: 0, visible: true, label: "自定义样例 1", value: [[5, 1, 9], 10] }];
+  methodPayload.cases = [{ value: [[5, 1, 9], 10] }];
 
   const classSolution = solutions["lru-cache"];
   const classPayload = payloadFor(classSolution, classSolution.code, 0);
-  classPayload.cases = [{ index: 0, visible: true, label: "自定义样例 2", value: { ops: ["LRUCache", "put", "get"], args: [[1], [7, 9], [7]] } }];
+  classPayload.cases = [{ value: { ops: ["LRUCache", "put", "get"], args: [[1], [7, 9], [7]] } }];
 
   const invalidClassPayload = payloadFor(classSolution, classSolution.code, 0);
-  invalidClassPayload.cases = [{ index: 0, visible: true, value: { ops: ["LRUCache", "get"], args: [[1]] } }];
+  invalidClassPayload.cases = [{ value: { ops: ["LRUCache", "get"], args: [[1]] } }];
 
   const parsed = pythonResults([methodPayload, classPayload, invalidClassPayload], "自定义样例执行失败");
-  const valid = parsed?.[0]?.passed && parsed?.[0]?.results?.[0]?.label === "自定义样例 1"
-    && parsed?.[1]?.passed && parsed?.[1]?.results?.[0]?.label === "自定义样例 2";
+  const valid = parsed[0].passed && parsed[0].results[0].actual === "[1, 2]"
+    && parsed[1].passed && parsed[1].results[0].actual === "[null, null, 9]";
   if (!valid || parsed[2]?.fatal !== "内置参考实现执行失败") {
     throw new Error(`自定义样例结果异常：${JSON.stringify(parsed)}`);
   }
   console.log("PASS 函数题、设计题与无效自定义样例校验");
+}
+
+function testEvaluationIsolation() {
+  const method = {
+    kind: "method", method: "count", output: "default",
+    code: "counter = globals().get('counter', 0) + 1\nclass Solution:\n    def count(self): return counter",
+    tests: [[], [], []],
+  };
+  const design = {
+    kind: "class", className: "Bag", output: "default",
+    code: "class Bag:\n    def __init__(self, values):\n        self.size = len(values)\n        values.clear()\n    def count(self): return self.size",
+    tests: [{ ops: ["Bag", "count"], args: [[[1, 2, 3]], []] }],
+  };
+  const core = payloadFor(method);
+  const acm = payloadFor(method, "counter = globals().get('counter', 0) + 1\nprint(counter)");
+  acm.mode = "acm";
+  acm.cases.forEach((item) => { item.stdin = ""; });
+  const parsed = pythonResults([core, acm, payloadFor(design)], "评测隔离验证失败");
+  if (!parsed.every((result) => result.passed)
+    || !parsed.slice(0, 2).every((result) => result.results.every((item) => item.actual === "1" && item.expected === "1"))
+    || parsed[2].results[0].actual !== "[null, 3]") {
+    throw new Error(`评测用例之间发生状态或输入泄漏：${JSON.stringify(parsed)}`);
+  }
+  console.log("PASS 核心与 ACM 代码复用编译结果时仍隔离命名空间，设计题输入相互独立");
 }
 
 function testAcmMode() {
@@ -281,7 +325,7 @@ function testAcmMode() {
   const parsed = pythonResults(payloads, "ACM 模式执行失败");
   const valid = parsed?.[0]?.passed && parsed[0].results.length === 2
     && parsed[0].results.every((item) => item.passed && item.stderr === "checked\n")
-    && parsed[0].results[0].input === "4\n2 7 11 15\n9"
+    && parsed[0].results[0].actual === "0 1"
     && parsed?.[1]?.passed === false && parsed[1].results[0].error.includes("NameError");
   if (!valid) throw new Error(`ACM 模式结果异常：${JSON.stringify(parsed)}`);
   console.log("PASS ACM 模式复用内置用例、标准输入输出、标准错误与异常捕获");
@@ -304,9 +348,7 @@ globalThis.payloads = Object.entries(SOLUTIONS).map(([slug, solution]) => {
     referenceCode,
     meta,
     mode: "acm",
-    cases: tests.map((value, index) => ({
-      index,
-      visible: index < 2,
+    cases: tests.map((value) => ({
       value,
       stdin: formatAcmCase(value, solution),
     })),
@@ -330,88 +372,26 @@ globalThis.payloads = Object.entries(SOLUTIONS).map(([slug, solution]) => {
 }
 
 function verifyExportHelpers(html, check) {
-  const start = html.indexOf("function base64FromBytes");
-  const exportDownloadStart = html.indexOf("function exportMarkdown(", start);
-  const end = html.indexOf("function exportMarkdownText", start);
-  check(start >= 0 && end > start, "可提取 Markdown 导出辅助函数");
+  const start = html.indexOf("function markdownTableCell");
+  const end = html.indexOf("function downloadText", start);
+  check(start >= 0 && end > start, "可提取 Markdown 阅读导出函数");
+  const record = { status: "solved", note: "中文 | 笔记\n🚀 <tag>", code: "if x < 2:\n    return x", acmCode: "print('ACM')" };
   const context = {
-    TextEncoder,
-    TextDecoder,
-    Uint8Array,
-    btoa: (value) => Buffer.from(value, "binary").toString("base64"),
-    atob: (value) => Buffer.from(value, "base64").toString("binary"),
-    escapeHtml: (value) => String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;"),
-  };
-  const sample = "中文笔记 | 换行\nemoji 🚀";
-  const script = `${html.slice(start, end)}\nglobalThis.helperResult = {
-    decoded: decodeRecordText(encodeRecordText(${JSON.stringify(sample)})),
-    note: markdownTableCell(${JSON.stringify(sample + " <tag>")}),
-    code: markdownCodeCell("if x < 2:\\n    return x"),
-  };`;
-  new vm.Script(script, { filename: "export-helpers.test.js" }).runInNewContext(context);
-  check(context.helperResult.decoded === sample, "导出文本 UTF-8 编解码可往返");
-  check(context.helperResult.note.includes("&#124;") && context.helperResult.note.includes("<br>") && context.helperResult.note.includes("&lt;tag&gt;"), "Markdown 表格笔记转义正确");
-  check(context.helperResult.code.startsWith("<code>") && context.helperResult.code.includes("&nbsp;&nbsp;&nbsp;&nbsp;"), "Markdown 表格代码格式正确");
-
-  const recordStart = html.indexOf("function plainObject");
-  const settingsStart = html.indexOf("function normalizeSettings", recordStart);
-  const importStart = html.indexOf("function importMarkdown");
-  const importEnd = html.indexOf("async function copyText", importStart);
-  check(exportDownloadStart > end && recordStart >= 0 && settingsStart > recordStart && importStart >= 0 && importEnd > importStart, "可提取 Markdown 导入导出协议");
-  const existingRecord = {
-    status: "solved", attempts: 3, note: sample, code: "class Solution:\n    pass", acmCode: "print('ACM')",
-    customCases: ["[[1, 2], 3]"], acmCustomCases: ["2\n1 2\n3"], updatedAt: "2026-09-03T00:00:00.000Z", passedAt: "2026-09-03T00:00:00.000Z",
-  };
-  const protocolContext = {
-    TextEncoder,
-    TextDecoder,
-    Uint8Array,
-    btoa: context.btoa,
-    atob: context.atob,
-    escapeHtml: context.escapeHtml,
-    EXPORT_VERSION: 1,
-    VALID_STATUSES: new Set(["todo", "attempted", "solved"]),
-    MAX_CUSTOM_CASES: 20,
-    MAX_CUSTOM_CASE_LENGTH: 50_000,
-    EMPTY_RECORD: Object.freeze({ status: "todo", attempts: 0, note: "", updatedAt: null, passedAt: null }),
-    PROBLEMS: [{ slug: "two-sum", frontendId: "1", title: "两数之和" }],
-    bySlug: new Map([["two-sum", true]]),
+    escapeHtml: (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"),
     statistics: () => ({ solved: 1, attempted: 0, noted: 1, submissions: 3 }),
-    recordFor: () => existingRecord,
-    finalizeImport: (importedRecords, skippedCount) => ({ importedRecords, skippedCount }),
+    PROBLEMS: [{ slug: "two-sum", frontendId: "1", title: "两数之和" }],
+    recordFor: () => record,
   };
-  const protocolScript = `${html.slice(recordStart, settingsStart)}
-${html.slice(start, exportDownloadStart)}
-${html.slice(importStart, importEnd)}
-const exportedAt = new Date("2026-09-03T08:00:00.000Z");
-const withCodeText = exportMarkdownText(true, exportedAt);
-const withCodeResult = importMarkdown(withCodeText);
-const withCode = withCodeResult.importedRecords.get("two-sum");
-const withoutCodeResult = importMarkdown(exportMarkdownText(false, exportedAt));
-const withoutCode = withoutCodeResult.importedRecords.get("two-sum");
-globalThis.protocolResult = {
-  table: withCodeText,
-  withCode: {
-    status: withCode.status, attempts: withCode.attempts, note: withCode.note,
-    code: withCode.code, acmCode: withCode.acmCode,
-    customCases: withCode.customCases, acmCustomCases: withCode.acmCustomCases,
-  },
-  withoutCode: { code: withoutCode.code, acmCode: withoutCode.acmCode },
-  skipped: withCodeResult.skippedCount + withoutCodeResult.skippedCount,
-};`;
-  new vm.Script(protocolScript, { filename: "export-import-roundtrip.test.js" }).runInNewContext(protocolContext);
-  const protocol = protocolContext.protocolResult;
-  check(protocol.skipped === 0 && protocol.withCode.status === "solved" && protocol.withCode.attempts === 3 && protocol.withCode.note === sample, "Markdown 完整导出导入可恢复进度和 UTF-8 笔记");
-  check(protocol.withCode.code === existingRecord.code && protocol.withCode.acmCode === existingRecord.acmCode
-    && JSON.stringify(protocol.withCode.customCases) === JSON.stringify(existingRecord.customCases)
-    && JSON.stringify(protocol.withCode.acmCustomCases) === JSON.stringify(existingRecord.acmCustomCases), "Markdown 往返会恢复两套代码并保留两套自定义样例");
-  check(protocol.withoutCode.code === existingRecord.code && protocol.withoutCode.acmCode === existingRecord.acmCode
-    && protocol.table.includes("| 题目名 | 笔记 | 个人代码 |"), "不含代码的导入会保留现有代码，含代码的导出包含可读表格");
+  new vm.Script(`${html.slice(start, end)}
+    globalThis.result = {
+      withCode: exportMarkdownText(true), withoutCode: exportMarkdownText(false),
+    };`).runInNewContext(context);
+  const { withCode, withoutCode } = context.result;
+  check(withCode.includes("&#124;") && withCode.includes("<br>") && withCode.includes("&lt;tag&gt;")
+    && withCode.includes("&nbsp;&nbsp;&nbsp;&nbsp;") && withCode.includes("print(&#039;ACM&#039;)"), "Markdown 阅读导出正确转义笔记并可显示两套代码");
+  check(!withoutCode.includes("print(") && !withoutCode.includes("return") && withoutCode.includes("JSON 备份")
+    && !withCode.includes("LC_RECORD") && !withCode.includes("Base64"), "Markdown 可省略代码，且已移除隐藏备份数据");
+  verifyBackupTools(check);
 }
 
 function verifyStateHelpers(html, check) {
@@ -561,19 +541,29 @@ for (const [slug, solution] of Object.entries(SOLUTIONS)) {
     }
   }
 }
+const malformed = [
+  ["two-sum", "2\\n2 7\\n   ", "必须是数字"],
+  ["two-sum", "9007199254740992\\n2 7\\n9", "有效整数范围"],
+  ["group-anagrams", "1000000000\\neat", "剩余输入不足"],
+  ["rotate-image", "1000000000 1\\n1", "剩余输入不足"],
+].map(([slug, input, expected]) => {
+  try { parseCustomCase(input, SOLUTIONS[slug]); return false; }
+  catch (error) { return error.message.includes(expected); }
+});
 globalThis.result = {
-  failures, total,
+  failures, total, malformed,
   twoSum: formatAcmCase(SOLUTIONS["two-sum"].tests[0], SOLUTIONS["two-sum"]),
   lru: formatAcmCase(SOLUTIONS["lru-cache"].tests[0], SOLUTIONS["lru-cache"]),
 };`;
   new vm.Script(script, { filename: "acm-cases.test.js" }).runInNewContext(context);
   check(context.result.failures.length === 0 && context.result.total === Object.values(solutions).reduce((total, solution) => total + solution.tests.length, 0), "全部内置用例均可在题目级 ACM 文本格式中无损往返");
   check(context.result.twoSum === "4\n2 7 11 15\n9" && context.result.lru.startsWith("10\nLRUCache 2\nput 1 1"), "数组参数与设计题使用常见的长度、空格分隔和逐行操作格式");
+  check(context.result.malformed.every(Boolean), "ACM 输入拒绝空白数字、超出安全整数的长度及无法满足的行数声明");
 }
 
 function verifyEditorHelpers(html, check) {
   const start = html.indexOf('const EDITOR_INDENT = "    "');
-  const end = html.indexOf("function base64FromBytes", start);
+  const end = html.indexOf("// src/ui/backup-ui.js", start);
   check(start >= 0 && end > start, "可提取代码编辑辅助函数");
   const context = { Event: class Event { constructor(type) { this.type = type; } } };
 const script = `const editor = {
@@ -710,7 +700,7 @@ async function testPyodide() {
   pyodide.globals.set("formatter_line_length", formatterBundle.lineLength);
   pyodide.globals.set("formatter_source", "def add( a,b):\n return(a+b)\n");
   const formatted = JSON.parse(await pyodide.runPythonAsync(`${pythonFormatter}\nFORMAT_RESULT_JSON`));
-  if (!formatted.ok || formatted.version !== formatterBundle.version || formatted.code !== "def add(a, b):\n    return a + b\n") {
+  if (!formatted.ok || formatted.version !== formatterManifest.formatter.version || formatted.code !== "def add(a, b):\n    return a + b\n") {
     throw new Error(`Black 格式化测试失败：${JSON.stringify(formatted)}`);
   }
   pyodide.globals.set("formatter_source", "def broken(:\n pass");
@@ -764,10 +754,10 @@ async function verifyArtifact(html) {
   check(!staticHtml.includes("-webkit-") && !staticHtml.includes('wrap="off"') && !staticHtml.includes('focusable="false"')
     && !html.includes("document.execCommand") && !html.includes('addEventListener("beforeunload"')
     && !html.includes('app_header.setAttribute("aria-hidden"') && !html.includes('problem_pane.setAttribute("aria-hidden"'), "已移除私有样式、非标准属性、重复隐藏状态与废弃浏览器接口");
-  check(html.includes("const EXPORT_VERSION = 1") && html.includes("LC_EXPORT_VERSION:") && html.includes("LC_RECORD") && html.includes("noteBase64") && html.includes("acmCodeBase64"), "包含核心代码与 ACM 工作区的 Markdown 导入导出协议");
-  check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "个人代码"]'), "Markdown 表格可选导出个人代码列");
+  check(html.includes("lc-offline-backup") && html.includes("function confirmBackupImport") && html.includes("function undoLastImport") && !html.includes("LC_RECORD") && !html.includes("function importMarkdown"), "使用完整 JSON 备份、预览及撤销，移除旧 Markdown 导入协议");
+  check(html.includes("export-code-checkbox") && html.includes("在表格中包含个人代码") && html.includes('["题目名", "笔记", "核心代码", "ACM 代码"]'), "Markdown 表格可选导出个人代码列");
   check(!html.includes("const STATE_VERSION") && html.includes("const DEFAULT_SETTINGS") && html.includes('id="auto-expand-button"') && html.includes("expandProblemByDefault: true") && html.includes("setProblemPaneCollapsed(!state.settings.expandProblemByDefault)"), "题目描述默认展开且状态设置使用单一规范化路径");
-  check(html.includes("setCodeMode(state.settings.codeMode, false, false);\nrenderCatalog();\nroute();"), "首页启动时会将本地保存的代码模式同步到页头选中状态");
+  check(html.includes("setCodeMode(state.settings.codeMode, false, false);\nroute();"), "首页启动时同步代码模式并由路由渲染当前页面");
   check(html.includes('id="pane-resizer"') && html.includes("function constrainedProblemPaneWidth") && html.includes("setProblemPaneWidth") && html.includes("PROBLEM_PANE_DEFAULT = 43"), "题目和代码分栏支持统一约束、调整宽度并持久化");
   check(html.includes('id="catalog-result-count"') && html.includes("mobileWorkspaceMedia"), "目录筛选和移动端单屏工作区完整");
   check(html.includes('id="code-highlight"') && html.includes("function highlightPython") && html.includes("function updateCodeHighlight") && html.includes("py-indent-guide"), "代码编辑器包含离线 Python 语法高亮层与缩进引导线");
@@ -784,7 +774,7 @@ async function verifyArtifact(html) {
   check(html.includes('role="tablist"') && html.includes('role="tabpanel"') && html.includes('event.key === "ArrowRight"'), "工作区标签支持完整语义与方向键导航");
   check(html.includes("function trapModalFocus") && html.includes('modal.setAttribute("aria-hidden", "false")'), "弹窗会维护可访问状态并限制键盘焦点");
   check(html.includes('id="reset-progress-button"') && html.includes('id="reset-progress-modal"') && html.includes("function resetProgressRecords") && html.includes("个人代码、笔记和自定义样例不会删除"), "目录支持确认后一键重置全部提交进度且保留个人内容");
-  check(html.includes("const savePulseTimers = new WeakMap()") && html.includes('document.visibilityState === "hidden"') && html.includes('window.addEventListener("pagehide"'), "保存提示去抖且页面进入后台时立即持久化");
+  check(html.includes("function updateSaveIndicators()") && !html.includes("savePulseTimers") && html.includes('document.visibilityState === "hidden"') && html.includes('window.addEventListener("pagehide"'), "保存提示基于实际写入结果且页面进入后台时立即持久化");
   check(html.includes('id="run-button" class="button" type="button">运行</button>') && html.includes('id="submit-button" class="button primary" type="button">提交</button>')
     && html.includes('id="custom-case-button"') && html.includes("function renderTestConsole") && html.includes('data-console-view="cases"')
     && html.includes('data-console-view="results"') && html.includes("function inputFieldsForConsole"), "运行控制台支持测试用例、测试结果、Case 切换及按参数展示输入");
@@ -793,14 +783,15 @@ async function verifyArtifact(html) {
     && !html.includes("formattingControlButtons")
     && html.match(/for \(const button of evaluationControlButtons\) button\.disabled = busy/g)?.length === 2,
   "评测与格式化期间均保持核心与 ACM 模式可切换，并由整个分段控件统一处理点击");
-  check(html.includes("execute_acm") && html.includes('mode: codeMode === "acm"') && html.includes("solution.tests.slice"), "ACM 模式支持独立代码并复用运行、提交及自定义样例评测");
+  check(html.includes("execute_acm") && html.includes("mode: codeMode,") && html.includes("solution.tests.slice"), "ACM 模式支持独立代码并复用运行、提交及自定义样例评测");
   check(pythonHarness.includes("payload['mode']") && pythonHarness.includes("meta['output']")
     && !pythonHarness.includes("payload.get('mode')") && !pythonHarness.includes("'yes'") && !pythonHarness.includes("'no'"), "评测器使用当前严格协议且仅接受公开的布尔输入格式");
   check(html.includes("evaluationInProgress") && html.includes("MAX_CUSTOM_CASES = 20") && html.includes("MAX_IMPORT_FILE_SIZE"), "评测、自定义样例和导入文件具有资源边界");
   check(html.includes("new Worker") && html.includes("loadPyodide"), "包含隔离的 Python 运行时");
   check(html.includes("prewarmJudge()") && html.includes("Python 运行时已内置，将自动准备"), "Python 运行时自动预热");
   check(html.includes("function createRuntimeUrl") && html.includes("runtimeUrls.forEach((url) => URL.revokeObjectURL(url))")
-    && !html.includes("function runtimeObjectUrls"), "运行时 Blob URL 在评测 Worker 内创建并及时释放，兼容 file 协议的不透明来源");
+    && !html.includes("function runtimeAssets") && !html.includes("decodedRuntime"), "运行时在评测 Worker 内解码并释放 Blob URL，主线程不保留解码副本");
+  check(html.includes('type: "module", name: "lc-python-judge"') && !html.includes('Object.defineProperty(globalThis, "importScripts"'), "Python 使用模块 Worker 并移除经典 Worker 兼容补丁");
   check(!html.includes("startMainThreadJudge") && !html.includes("runMainThreadPython") && !html.includes("new Function(`${loaderSource}"), "已移除重复且会阻塞页面的主线程 Python 兼容后端");
   check(Buffer.byteLength(html) > 15 * 1024 * 1024, "Python、题面和图片已打包进单文件");
   const scriptMatch = html.match(/<script>([\s\S]*)<\/script>\s*<\/body>/i);
@@ -830,7 +821,8 @@ async function verifyCompactArtifact(html) {
   if (!payloadMatch) throw new Error("压缩单文件缺少内嵌应用数据");
   const expandedHtml = gunzipSync(Buffer.from(payloadMatch[1], "base64")).toString("utf8");
   if (expandedHtml !== html) throw new Error("压缩单文件解压后与标准离线产物不一致");
-  if (!compactHtml.includes('new DecompressionStream("gzip")') || !compactHtml.includes("document.write(html)")) {
+  if (!compactHtml.includes('new DecompressionStream("gzip")') || !compactHtml.includes('new DOMParser().parseFromString(html, "text/html")')
+    || !compactHtml.includes("source.replaceWith(script)") || /document\.(?:write|open|close)\(/.test(compactHtml)) {
     throw new Error("压缩单文件缺少浏览器内解压启动逻辑");
   }
   if (/<script\b[^>]*\bsrc\s*=|<link\b[^>]*\brel=["']?stylesheet|https?:\/\//i.test(compactHtml)) {
@@ -854,6 +846,7 @@ if (command === "build") {
   testReferenceSolutions();
   testNegativeCases();
   testCustomCases();
+  testEvaluationIsolation();
   testAcmMode();
   testAcmReferenceSolutions(html);
   await testPyodide();

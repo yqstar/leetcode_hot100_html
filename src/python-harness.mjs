@@ -127,8 +127,6 @@ def to_plain(value):
         return [to_plain(item) for item in value]
     if isinstance(value, set):
         return sorted([to_plain(item) for item in value], key=json_key)
-    if hasattr(value, 'to_py'):
-        return to_plain(value.to_py())
     return repr(value)
 
 def json_key(value):
@@ -199,9 +197,9 @@ def is_balanced_bst(root):
     return {'inorder': inorder, 'balanced': balanced}
 
 def normalize_collection(result, output):
-    if output in ('groups', 'rows-sorted'):
+    if output == 'rows-sorted':
         return sorted([sorted(row, key=json_key) for row in result], key=json_key)
-    if output in ('rows', 'unordered', 'sorted'):
+    if output in ('rows', 'unordered'):
         return sorted(result, key=json_key)
     return result
 
@@ -252,11 +250,12 @@ def namespace():
 
 def execute(source, meta, raw_case):
     ns = namespace()
-    args, context = setup_case(meta, raw_case)
+    args, context = [], {}
     output_buffer = io.StringIO()
     with contextlib.redirect_stdout(output_buffer):
         exec(source, ns)
         if meta['kind'] == 'class':
+            raw_case = copy.deepcopy(raw_case)
             operations = raw_case.get('ops') if isinstance(raw_case, dict) else None
             operation_args = raw_case.get('args') if isinstance(raw_case, dict) else None
             if not isinstance(operations, list) or not isinstance(operation_args, list) or not operations:
@@ -275,6 +274,7 @@ def execute(source, meta, raw_case):
                     outputs.append(to_plain(getattr(instance, operation)(*args)))
             result = outputs
         else:
+            args, context = setup_case(meta, raw_case)
             solution = ns['Solution']()
             result = getattr(solution, meta['method'])(*args)
     normalized = normalize(result, meta, args, context, raw_case)
@@ -300,7 +300,7 @@ def parse_acm_scalar(token, example):
         if token.lower() in ('true', '1'): return True
         if token.lower() in ('false', '0'): return False
         return token
-    if isinstance(example, int) and not isinstance(example, bool):
+    if isinstance(example, int):
         try: return int(token)
         except ValueError: return token
     if isinstance(example, float):
@@ -340,9 +340,9 @@ def parse_acm_output(stdout, expected, meta):
     if output == 'palindrome':
         return text
     if output == 'randomlist':
-        return parse_acm_rows(text, expected.get('values', []))
+        return parse_acm_rows(text, expected['values'])
     if output == 'flatten':
-        return parse_acm_flat(text, expected.get('values', []))
+        return parse_acm_flat(text, expected['values'])
     if output == 'balanced-bst':
         tokens = text.split()
         return [None if token.lower() in ('null', 'none') else int(token) for token in tokens]
@@ -372,14 +372,13 @@ def format_acm_plain(value):
 
 def format_acm_output(value, meta):
     output = meta['output']
-    if output in ('randomlist', 'flatten'): return format_acm_plain(value.get('values', []))
+    if output in ('randomlist', 'flatten'): return format_acm_plain(value['values'])
     if output == 'balanced-bst': return '输出任意满足条件的平衡 BST 层序序列'
-    if output == 'palindrome': return f"输出任意长度为 {value.get('length', 0)} 的最长回文子串"
+    if output == 'palindrome': return f"输出任意长度为 {value['length']} 的最长回文子串"
     return format_acm_plain(value)
 
 def normalize_acm(result, meta, raw_case):
     output = meta['output']
-    result = to_plain(result)
     if output == 'randomlist' and isinstance(result, list):
         return {'values': result, 'distinct': True}
     if output == 'flatten' and isinstance(result, list):
@@ -408,25 +407,31 @@ def execute_acm(source, meta, raw_case, stdin, expected):
         sys.stdin = previous_stdin
     stdout = output_buffer.getvalue()
     stderr = error_buffer.getvalue()
-    return normalize_acm(parse_acm_output(stdout, expected, meta), meta, raw_case), stdout, stderr, stdin
+    return normalize_acm(parse_acm_output(stdout, expected, meta), meta, raw_case), stdout, stderr
 
 def run_payload(payload):
     meta = payload['meta']
     acm = payload['mode'] == 'acm'
     results = []
+    try:
+        reference_code = compile(payload['referenceCode'], '<reference>', 'exec')
+    except Exception:
+        return {'fatal': '内置参考实现编译失败', 'detail': traceback.format_exc()}
+    user_code = None
     for item in payload['cases']:
         raw_case = item['value']
-        stdin = item['stdin'] if acm else safe_display(to_plain(raw_case))
         started = time.perf_counter()
         try:
-            expected, _ = execute(payload['referenceCode'], meta, raw_case)
+            expected, _ = execute(reference_code, meta, raw_case)
         except Exception:
             return {'fatal': '内置参考实现执行失败', 'detail': traceback.format_exc()}
         try:
+            if user_code is None:
+                user_code = compile(payload['userCode'], '<solution>', 'exec')
             if acm:
-                actual, stdout, stderr, stdin = execute_acm(payload['userCode'], meta, raw_case, item['stdin'], expected)
+                actual, stdout, stderr = execute_acm(user_code, meta, raw_case, item['stdin'], expected)
             else:
-                actual, stdout = execute(payload['userCode'], meta, raw_case)
+                actual, stdout = execute(user_code, meta, raw_case)
                 stderr = ''
             passed = values_equal(actual, expected, meta['output'])
             error = None
@@ -434,9 +439,7 @@ def run_payload(payload):
             actual, stdout, stderr, passed = None, '', '', False
             error = traceback.format_exc(limit=8)
         results.append({
-            'index': item['index'], 'visible': item['visible'],
-            'label': item.get('label'),
-            'passed': passed, 'input': stdin.rstrip('\n'),
+            'passed': passed,
             'expected': format_acm_output(expected, meta) if acm else safe_display(expected),
             'actual': stdout.strip() if acm else safe_display(actual),
             'stdout': '' if acm else stdout[-4000:], 'stderr': stderr[-4000:], 'error': error,

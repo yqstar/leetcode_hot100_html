@@ -1,9 +1,16 @@
 import { spawn, spawnSync } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { verifyBackupInBrowser } from "./backup-browser-test.mjs";
+import { captureLayout } from "./layout-review.mjs";
+import { verifyResponsiveLayout } from "./layout-browser-test.mjs";
+import { verifyUiRegressions } from "./ui-regression-test.mjs";
+import { verifySplitter } from "./splitter-browser-test.mjs";
+import { verifyCatalogFilters } from "./filter-browser-test.mjs";
+import { verifyWorkspacePresentation, captureWorkspacePresentation } from "./presentation-browser-test.mjs";
 
 const rootPath = fileURLToPath(new URL("../", import.meta.url));
 const applicationFiles = ["lc_offline.html", "lc_offline_compact.html"];
@@ -120,6 +127,7 @@ async function waitForApplication(cdp, sessionId, timeoutMs = 30_000) {
 async function evaluateValue(cdp, sessionId, expression) {
   const evaluation = await cdp.send("Runtime.evaluate", {
     expression,
+    awaitPromise: true,
     returnByValue: true,
   }, sessionId);
   if (evaluation.exceptionDetails) {
@@ -146,11 +154,41 @@ async function clickElement(cdp, sessionId, selector) {
 
 const smokeExpression = `
 (async () => {
-  openProblem("two-sum", false);
+  elements.difficulty_filter.value = "Hard";
+  renderCatalog();
+  const hardCount = elements.category_grid.querySelectorAll(".problem-row").length;
+  elements.difficulty_filter.value = "all";
+  elements.search_input.value = "  TWO SUM  ";
+  renderCatalog();
+  const searchPassed = elements.category_grid.querySelectorAll(".problem-row").length === 1
+    && elements.category_grid.querySelector(".problem-row").dataset.slug === "two-sum";
+  elements.clear_filter_button.click();
+  const catalogPassed = hardCount === 12 && searchPassed
+    && elements.category_grid.querySelectorAll(".problem-row").length === 100
+    && elements.category_grid.querySelectorAll(".category-card").length === 17;
+  const routeSettled = new Promise((resolve) => window.addEventListener("hashchange", resolve, { once: true }));
+  openProblem("two-sum");
+  switchWorkspaceTab("notes");
+  await routeSettled;
+  const routePassed = elements.notes_editor.closest('[role="tabpanel"]').classList.contains("active");
+  switchWorkspaceTab("code");
   setCodeMode("core");
+  elements.code_editor.value = "# before typing";
+  updateCodeHighlight();
+  let highlightUpdates = 0;
+  const highlightObserver = new MutationObserver((records) => { highlightUpdates += records.length; });
+  highlightObserver.observe(elements.code_highlight, { childList: true });
+  for (let index = 0; index < 10; index += 1) {
+    elements.code_editor.value = "print(" + index + ")";
+    notifyCodeInput();
+  }
+  const savedBeforeRender = recordFor("two-sum").code === "print(9)";
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const highlightPassed = savedBeforeRender && highlightUpdates === 1 && elements.code_highlight.textContent === "print(9)";
+  highlightObserver.disconnect();
   const solution = SOLUTIONS["two-sum"];
   const { code: referenceCode, tests, note: _note, complexity: _complexity, ...meta } = solution;
-  const coreCases = tests.slice(0, 2).map((value, index) => ({ index, visible: true, value }));
+  const coreCases = tests.slice(0, 2).map((value) => ({ value }));
   const core = await evaluate({
     mode: "core",
     userCode: referenceCode,
@@ -158,9 +196,7 @@ const smokeExpression = `
     meta,
     cases: coreCases,
   }, 12_000);
-  const acmCases = tests.slice(0, 2).map((value, index) => ({
-    index,
-    visible: true,
+  const acmCases = tests.slice(0, 2).map((value) => ({
     value,
     stdin: formatAcmCase(value, solution),
   }));
@@ -172,6 +208,7 @@ const smokeExpression = `
     cases: acmCases,
   }, 12_000);
   const formatted = await formatPythonSource("def add( a,b):\\n return(a+b)\\n", 12_000);
+  const unchanged = await formatPythonSource(formatted.code, 12_000);
   document.querySelector("#custom-case-button").click();
   const caseViewPassed = document.querySelector("#result-panel").classList.contains("open")
     && document.querySelectorAll("[data-console-view]").length === 2
@@ -182,6 +219,15 @@ const smokeExpression = `
     && document.querySelectorAll("[data-console-case]").length === core.results.length
     && document.querySelector(".console-result-title")?.textContent.includes("运行通过")
     && [...document.querySelectorAll(".console-field-label")].some((element) => element.textContent === "实际结果");
+  elements.code_editor.value = referenceCode;
+  recordFor("two-sum").customCases = ["[[5,1,9],10]"];
+  await runEvaluation("sample");
+  document.querySelector('[data-console-case="2"]').click();
+  const customResultPassed = testConsoleState.evaluation.passed
+    && document.querySelector('[data-console-case="2"]').textContent === "自定义样例 1"
+    && document.querySelector(".console-field-value").textContent === "[5,1,9]"
+    && testConsoleState.evaluation.results.every((result) => !["index", "visible", "input", "label"].some((key) => Object.hasOwn(result, key)));
+  recordFor("two-sum").customCases = [];
   setCodeMode("acm");
   document.querySelector("#custom-case-button").click();
   const acmCaseViewPassed = document.querySelector(".console-field-label")?.textContent === "标准输入"
@@ -201,16 +247,63 @@ const smokeExpression = `
     document.querySelector("#" + mode + "-mode-button").click();
     repeatedModeSwitchPassed &&= state.settings.codeMode === mode;
   }
+  let timeoutPassed = false;
+  try {
+    await evaluate({ mode: "core", userCode: "while True: pass", referenceCode, meta, cases: coreCases }, 100);
+  } catch (error) {
+    timeoutPassed = error.message.includes("已终止 Python 进程");
+  }
+  const restarted = await evaluate({ mode: "core", userCode: referenceCode, referenceCode, meta, cases: coreCases }, 12_000);
   return {
     runtime: document.querySelector("#runtime-status span:last-child")?.textContent,
     corePassed: core?.passed === true,
     acmPassed: acm?.passed === true,
-    consolePassed: caseViewPassed && resultViewPassed && acmCaseViewPassed,
+    consolePassed: caseViewPassed && resultViewPassed && customResultPassed && acmCaseViewPassed,
     modeSwitchPassed: modeSwitchWhileBusyPassed && modeSwitchWhileFormattingPassed && repeatedModeSwitchPassed,
-    formatPassed: formatted?.ok === true && formatted.code === "def add(a, b):\\n    return a + b\\n",
+    formatPassed: formatted?.ok === true && formatted.code === "def add(a, b):\\n    return a + b\\n" && unchanged.ok && !unchanged.changed,
+    routePassed,
+    catalogPassed,
+    highlightPassed,
+    restartPassed: timeoutPassed && restarted.passed,
   };
 })()
 `;
+
+async function testBackupLayout(cdp, sessionId, relativePath) {
+  await evaluateValue(cdp, sessionId, `previewBackupFile(new File([backupTools.serialize({
+    records: Object.fromEntries(PROBLEMS.map(({ slug }) => [slug, { ...EMPTY_RECORD, note: "笔记示例", code: "print(1)" }])),
+    settings: { ...DEFAULT_SETTINGS },
+  })], "lc-progress.json"))`);
+  for (const [width, height] of [[2048, 768], [375, 812]]) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+    const layout = await evaluateValue(cdp, sessionId, `(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const card = elements.import_modal.querySelector('[role="dialog"]');
+      const rect = card.getBoundingClientRect();
+      elements.import_confirm_button.scrollIntoView({ block: "nearest" });
+      const button = elements.import_confirm_button.getBoundingClientRect();
+      const valid = rect.top >= 0 && rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight
+        && card.scrollWidth <= card.clientWidth && button.bottom <= innerHeight;
+      card.scrollTop = 0;
+      return valid;
+    })()`);
+    if (!layout) throw new Error(`${relativePath} 导入预览在 ${width}px 下溢出或无法确认`);
+    if (process.env.SMOKE_SCREENSHOT_DIR) {
+      await mkdir(process.env.SMOKE_SCREENSHOT_DIR, { recursive: true });
+      const screenshot = await cdp.send("Page.captureScreenshot", { format: "png" }, sessionId);
+      await writeFile(join(process.env.SMOKE_SCREENSHOT_DIR, `${relativePath}-${width}.png`), Buffer.from(screenshot.data, "base64"));
+    }
+  }
+  await evaluateValue(cdp, sessionId, "closeImportModal(); openExportModal()");
+  const exportLayout = await evaluateValue(cdp, sessionId, `(() => {
+    elements.export_format_markdown.click();
+    const card = elements.export_modal.querySelector('[role="dialog"]');
+    const rect = card.getBoundingClientRect();
+    return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight && card.scrollWidth <= card.clientWidth;
+  })()`);
+  if (!exportLayout) throw new Error(`${relativePath} 移动端导出选项溢出`);
+  await evaluateValue(cdp, sessionId, "closeExportModal()");
+}
 
 async function testApplication(cdp, relativePath) {
   const url = pathToFileURL(join(rootPath, relativePath)).href;
@@ -218,6 +311,7 @@ async function testApplication(cdp, relativePath) {
   try {
     const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
     await cdp.send("Runtime.enable", {}, sessionId);
+    await cdp.send("Page.bringToFront", {}, sessionId);
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width: 2048,
       height: 768,
@@ -225,6 +319,28 @@ async function testApplication(cdp, relativePath) {
       mobile: false,
     }, sessionId);
     await waitForApplication(cdp, sessionId);
+    if (process.argv.includes("--layout-before") || process.argv.includes("--layout-after")) {
+      await captureLayout({ cdp, sessionId, evaluate: evaluateValue, phase: process.argv.includes("--layout-before") ? "before" : "after" });
+      return;
+    }
+    if (!process.argv.includes("--splitter-only") && !process.argv.includes("--filters-only")) {
+      await evaluateValue(cdp, sessionId, "ensureJudge().then(() => true)");
+      await evaluateValue(cdp, sessionId, `(${verifyWorkspacePresentation.toString()})()`);
+      await captureWorkspacePresentation({ cdp, sessionId, evaluate: evaluateValue });
+      console.log(`PASS ${relativePath} 格式化就地反馈、模板恢复确认、导出格式卡片、ACM 折叠说明及 11 张明暗与移动端截图`);
+      if (process.argv.includes("--components-only")) return;
+    }
+    if (!process.argv.includes("--splitter-only")) {
+      await verifyCatalogFilters({ cdp, sessionId, evaluate: evaluateValue });
+      console.log(`PASS ${relativePath} 筛选菜单明暗主题、真实鼠标与触摸、键盘选择、取消、焦点及窄屏布局`);
+      if (process.argv.includes("--filters-only")) return;
+    }
+    await verifySplitter({ cdp, sessionId, evaluate: evaluateValue, reload: async () => {
+      await cdp.send("Page.reload", {}, sessionId);
+      await waitForApplication(cdp, sessionId);
+    } });
+    console.log(`PASS ${relativePath} 分栏真实鼠标拖动、四种桌面宽度、捕获丢失、失焦、松开兜底、页面切换、键盘调整及刷新恢复`);
+    if (process.argv.includes("--splitter-only")) return;
     const startupModeUiPassed = await evaluateValue(cdp, sessionId, `(() => {
       const acm = state.settings.codeMode === "acm";
       return elements.core_mode_button.classList.contains("active") === !acm
@@ -256,10 +372,22 @@ async function testApplication(cdp, relativePath) {
       throw new Error(evaluation.exceptionDetails.exception?.description || evaluation.exceptionDetails.text || "页面测试异常");
     }
     const result = evaluation.result?.value;
-    if (!result?.corePassed || !result?.acmPassed || !result?.formatPassed || !result?.consolePassed || !result?.modeSwitchPassed || result.runtime !== "离线 Python 已就绪") {
+    if (!result?.corePassed || !result?.acmPassed || !result?.formatPassed || !result?.consolePassed || !result?.modeSwitchPassed
+      || !result?.catalogPassed || !result?.routePassed || !result?.highlightPassed || !result?.restartPassed || result.runtime !== "离线 Python 已就绪") {
       throw new Error(`${relativePath} 浏览器测试失败：${JSON.stringify(result)}`);
     }
-    console.log(`PASS ${relativePath} 在 file:// 下完成首页真实点击、核心评测、ACM 连续切换、运行控制台和 Black 格式化`);
+    const backupPassed = await evaluateValue(cdp, sessionId, `(${verifyBackupInBrowser.toString()})()`);
+    if (!backupPassed) throw new Error(`${relativePath} 备份恢复测试失败`);
+    await evaluateValue(cdp, sessionId, `(${verifyUiRegressions.toString()})()`);
+    await testBackupLayout(cdp, sessionId, relativePath);
+    for (const [width, height] of [[320, 480], [375, 667], [390, 844], [768, 1024], [900, 700], [1024, 768], [1440, 900]]) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+      await evaluateValue(cdp, sessionId, `(${verifyResponsiveLayout.toString()})()`);
+    }
+    console.log(`PASS ${relativePath} 在 file:// 下完成真实点击、核心/ACM 评测、控制台、连续格式化、路由保持、合并高亮刷新和 Worker 超时重启`);
+    console.log(`PASS ${relativePath} 完整备份下载、空白环境恢复、冲突预览、撤销、部分无效记录、存储失败处理及桌面/移动端布局`);
+    console.log(`PASS ${relativePath} 7 种视口的专题筛选、编辑器行号、工作区、5 类弹窗及隐私页布局`);
+    console.log(`PASS ${relativePath} 搜索归一化、DOM 复用、返回定位、真实保存状态、配额与损坏记录恢复、长代码、键盘隔离及 Worker 发送失败处理`);
   } finally {
     await cdp.send("Target.closeTarget", { targetId }).catch(() => {});
   }
@@ -271,6 +399,9 @@ let stderr = "";
 const chrome = spawn(executable, [
   "--headless=new",
   "--disable-background-networking",
+  "--disable-background-timer-throttling",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
   "--disable-component-update",
   "--disable-default-apps",
   "--disable-extensions",
@@ -283,6 +414,7 @@ const chrome = spawn(executable, [
   `--user-data-dir=${profilePath}`,
   "about:blank",
 ], { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] });
+const chromeClosed = new Promise((resolve) => chrome.once("close", resolve));
 chrome.stderr.on("data", (chunk) => {
   stderr = (stderr + chunk.toString("utf8")).slice(-8_000);
 });
@@ -290,12 +422,13 @@ const cdp = new CdpPipe(chrome);
 
 try {
   await cdp.send("Browser.getVersion");
-  for (const relativePath of applicationFiles) await testApplication(cdp, relativePath);
+  for (const relativePath of process.argv.some((arg) => arg.startsWith("--layout-")) ? applicationFiles.slice(0, 1) : applicationFiles) await testApplication(cdp, relativePath);
   await cdp.send("Browser.close").catch(() => {});
 } catch (error) {
   if (stderr.trim()) error.message += `\nChrome 日志：\n${stderr.trim()}`;
   throw error;
 } finally {
   if (chrome.exitCode == null) chrome.kill("SIGTERM");
-  await rm(profilePath, { recursive: true, force: true });
+  await chromeClosed;
+  await rm(profilePath, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

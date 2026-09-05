@@ -11,7 +11,7 @@ const solutions = {
                 return [seen[target - x], i]
             seen[x] = i`, [
     [[2, 7, 11, 15], 9], [[3, 2, 4], 6], [[3, 3], 6], [[-3, 4, 3, 90], 0],
-  ], { output: "sorted" }),
+  ], { output: "unordered" }),
 
   "group-anagrams": S("groupAnagrams", "将每个字符串排序后的结果作为哈希键，相同键的字符串自然落到同一组。", "时间 O(n·k log k)，空间 O(nk)", String.raw`class Solution:
     def groupAnagrams(self, strs):
@@ -21,7 +21,7 @@ const solutions = {
             groups[''.join(sorted(s))].append(s)
         return list(groups.values())`, [
     [["eat", "tea", "tan", "ate", "nat", "bat"]], [[""]], [["a"]], [["ab", "ba", "abc", "cab", "bca"]],
-  ], { output: "groups" }),
+  ], { output: "rows-sorted" }),
 
   "longest-consecutive-sequence": S("longestConsecutive", "把所有数字放入集合，只从不存在前驱 x-1 的数字开始向后扩展，每个数字最多访问一次。", "时间 O(n)，空间 O(n)", String.raw`class Solution:
     def longestConsecutive(self, nums):
@@ -1044,7 +1044,7 @@ class LRUCache:
             ans.extend(buckets[freq])
             if len(ans) >= k: return ans[:k]`, [
     [[1,1,1,2,2,3], 2], [[1], 1], [[4,4,4,4,6,6,6,7,7,8], 3], [[-1,-1,2,2,2,3], 1],
-  ], { output: "sorted" }),
+  ], { output: "unordered" }),
 
   "find-median-from-data-stream": S(null, "用最大堆保存较小一半、最小堆保存较大一半，并始终保持两边数量差不超过一。", "addNum O(log n)，findMedian O(1)，空间 O(n)", String.raw`class MedianFinder:
     def __init__(self):
