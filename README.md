@@ -81,11 +81,13 @@ node scripts/browser-smoke.mjs
 
 `build` 生成标准版和压缩版，`test` 执行完整构建与功能校验。需要本机 Node.js、Python 3、`.cache/runtime/` 中的 Pyodide 资源及 `src/vendor/` 中的格式化器依赖；构建过程不下载资源，缺失时会报告对应文件。
 
-`browser-smoke.mjs` 使用本机 Chrome/Chromium 验证两个 HTML 在 `file://` 下的评测、格式化、备份恢复、交互回归和 7 种视口布局，可通过 `CHROME_PATH` 指定浏览器。测试使用临时浏览器配置，不接触日常浏览器的学习记录。添加 `--splitter-only` 可单独验证分栏拖动：覆盖 901 / 1024 / 1440 / 2048px 宽度、鼠标与触摸、指针捕获丢失、窗口失焦、页面切换、键盘调整及刷新恢复。添加 `--layout-after` 只执行截图流程，生成 14 张目录、工作区及弹窗截图，保存到 `/private/tmp/lc-layout-review/after/`；完整功能测试请运行不带参数的命令。项目没有第三方 npm 依赖。
+`browser-smoke.mjs` 使用本机 Chrome/Chromium 验证两个 HTML 在 `file://` 下的评测、格式化、备份恢复、交互回归和 7 种视口布局，可通过 `CHROME_PATH` 指定浏览器。测试使用临时浏览器配置，不接触日常浏览器的学习记录。添加 `--splitter-only` 可单独验证分栏拖动：覆盖 901 / 1024 / 1440 / 2048px 宽度、鼠标与触摸、指针捕获丢失、窗口失焦、页面切换、键盘调整及刷新恢复。添加 `--layout-after` 只执行截图流程，生成 14 张目录、工作区及弹窗截图，保存到系统临时目录下的 `lc-layout-review/after/`；完整功能测试请运行不带参数的命令。项目没有第三方 npm 依赖。
 
-添加 `--filters-only` 可单独验证筛选菜单的明暗主题、鼠标与触摸、键盘选择、关闭与焦点恢复，以及 320 / 390px 窄屏布局；截图保存在 `/private/tmp/lc-filter-review/`。
+添加 `--filters-only` 可单独验证筛选菜单的明暗主题、鼠标与触摸、键盘选择、关闭与焦点恢复，以及 320 / 390px 窄屏布局；截图保存在系统临时目录下的 `lc-filter-review/`。
 
-添加 `--components-only` 可验证格式化状态栏反馈、模板恢复确认、导出格式卡片和 ACM 折叠说明；11 张深浅主题及移动端截图保存在 `/private/tmp/lc-components-review/`。
+添加 `--components-only` 可验证格式化状态栏反馈、模板恢复确认、导出格式卡片和 ACM 折叠说明；11 张深浅主题及移动端截图保存在系统临时目录下的 `lc-components-review/`。
+
+系统临时目录由 Node.js 的 `os.tmpdir()` 获取，可运行 `node -p 'require("node:os").tmpdir()'` 查看；在 macOS/Linux 上可通过 `TMPDIR` 指定，兼容 GitHub Actions 的 Ubuntu runner。
 
 ## 源码结构
 

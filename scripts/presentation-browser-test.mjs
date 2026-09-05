@@ -1,4 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export async function verifyWorkspacePresentation() {
   const assert = (condition, message) => { if (!condition) throw new Error(`工作区展示：${message}`); };
@@ -94,7 +96,8 @@ export async function verifyWorkspacePresentation() {
 export async function captureWorkspacePresentation({ cdp, sessionId, evaluate }) {
   const run = (expression) => evaluate(cdp, sessionId, expression);
   const snapshot = await run("JSON.stringify(state)");
-  await mkdir("/private/tmp/lc-components-review", { recursive: true });
+  const directory = join(tmpdir(), "lc-components-review");
+  await mkdir(directory, { recursive: true });
   try {
     for (const [name, theme, width, height, setup] of [
       ["format-dark", "dark", 1440, 900, 'showEditorFeedback("格式已规范，无需调整")'],
@@ -136,7 +139,7 @@ export async function captureWorkspacePresentation({ cdp, sessionId, evaluate })
       })()`);
       if (!valid) throw new Error(`${name} 展示溢出或遮挡操作区`);
       const screenshot = await cdp.send("Page.captureScreenshot", { format: "png" }, sessionId);
-      await writeFile(`/private/tmp/lc-components-review/${name}.png`, Buffer.from(screenshot.data, "base64"));
+      await writeFile(join(directory, `${name}.png`), Buffer.from(screenshot.data, "base64"));
     }
   } finally {
     await run(`if (!elements.reset_code_modal.classList.contains('hidden')) closeResetCodeModal();

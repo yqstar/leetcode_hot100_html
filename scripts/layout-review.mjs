@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export async function captureLayout({ cdp, sessionId, evaluate, phase }) {
-  const directory = `/private/tmp/lc-layout-review/${phase}`;
+  const directory = join(tmpdir(), "lc-layout-review", phase);
   await mkdir(directory, { recursive: true });
   await evaluate(cdp, sessionId, "ensureJudge().then(() => true)");
   const scenarios = [

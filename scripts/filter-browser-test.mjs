@@ -1,4 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export async function verifyCatalogFilters({ cdp, sessionId, evaluate }) {
   const run = async (expression) => {
@@ -66,7 +68,8 @@ export async function verifyCatalogFilters({ cdp, sessionId, evaluate }) {
       await settle();
     }
 
-    await mkdir("/private/tmp/lc-filter-review", { recursive: true });
+    const directory = join(tmpdir(), "lc-filter-review");
+    await mkdir(directory, { recursive: true });
     for (const [theme, width, height] of [["dark", 1440, 900], ["light", 1440, 900], ["dark", 390, 844], ["dark", 320, 480]]) {
       stage = `${theme} ${width}px`;
       await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
@@ -84,7 +87,7 @@ export async function verifyCatalogFilters({ cdp, sessionId, evaluate }) {
       })()`), `${theme} ${width}px：菜单溢出视口或主题文字不匹配`);
       await run('Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})))');
       const screenshot = await cdp.send("Page.captureScreenshot", { format: "png" }, sessionId);
-      await writeFile(`/private/tmp/lc-filter-review/${theme}-${width}.png`, Buffer.from(screenshot.data, "base64"));
+      await writeFile(join(directory, `${theme}-${width}.png`), Buffer.from(screenshot.data, "base64"));
       await click("#difficulty-filter-option-1");
       assert(await count() === 20, `${width}px：窄屏菜单选项无法点击`);
     }
